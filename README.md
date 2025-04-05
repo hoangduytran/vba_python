@@ -19,7 +19,7 @@ Thi hành VBA macro cho Excel worksheets
 
 ## installation
 
-Describe how to install and set up your project. Include any prerequisites or dependencies. For example:
+Cách lấy về máy và cài đặt phần phụ thuộc.
 
 ```bash
 git clone https://github.com/hoangduytran/vba_python.git
@@ -29,7 +29,18 @@ pip install -r requirements.txt
 
 ## usage (Sử Dụng)
 
-Giải thích chi tiết:
+##### Lưu ý:
+
+Đây chỉ là một sườn bài, bạn phải áp dụng nó cụ thể vào trong trường hợp của bạn. Phải biết lấy Python về máy, cài đặt nó theo nhu cầu. Rồi lại phải biết chạy lệnh
+
+`python3 -m pip install -r requirements.txt`
+
+để lấy các bản thư viện phụ thuộc yêu cầu.
+
+Bên cạnh đó, phải học cách viết các bản `macro` trong ngôn ngữ `VBA` (Visual Basic for Applications: Visual Basic cho Ứng Dụng). Đồng thời phải thông thuộc cấu trúc và các hàm của Excel để có thể sử dụng chúng thành thục.
+
+##### Giải thích chi tiết:
+
 Mô tả mục đích của `module`, các bước xử lý và yêu cầu để chạy mã.
 ```
 process_excel_file(file_path):
@@ -60,13 +71,7 @@ Sử dụng `multiprocessing.Pool` (bể đa trình xử lý) để xử lý cá
 
 Mã nguồn trên giúp tự động hoá việc xử lý nhiều văn bản Excel đồng thời, tối ưu tài nguyên CPU và dễ dàng bảo trì, mở rộng nếu cần.
 
-Nên nhớ, đây chỉ là sườn bài, bạn phải áp dụng nó cụ thể vào trong trường hợp của bạn. Phải biết lấy Python về máy, cài đặt nó theo nhu cầu. Rồi lại phải biết chạy lệnh
 
-`python3 -m pip install -r requirements.txt`
-
-để lấy các bản thư viện phụ thuộc yêu cầu.
-
-Bên cạnh đó, phải học cách viết các bản `macro` trong ngôn ngữ `VBA` (Visual Basic for Applications: Visual Basic cho Ứng Dụng). Đồng thời phải thông thuộc cấu trúc và các hàm của Excel để có thể sử dụng chúng thành thục.
 
 ## contributing (Đóng Góp)
 
