@@ -6,8 +6,7 @@ import glob, os, threading
 from multiprocessing import Manager, Pool
 import worker
 from worker import worker_logging_setup
-from mpp_logger import get_mp_logger, DEBUG_LOG  # Import hàm và instance global của logging
-
+from mpp_logger import get_mp_logger, DEBUG_LOG  # Nhập hàm và instance global của logging
 
 # Kiểu giao diện chung cho các widget
 COMMON_WIDGET_STYLE = {
@@ -16,7 +15,7 @@ COMMON_WIDGET_STYLE = {
     "height": 3
 }
 
-# Một TextHandler đơn giản để cập nhật widget Text của GUI.
+# Một TextHandler đơn giản để cập nhật widget Text của giao diện
 class TextHandler(logging.Handler):
     def __init__(self, text_widget):
         super().__init__()
@@ -24,6 +23,7 @@ class TextHandler(logging.Handler):
 
     def emit(self, record):
         msg = self.format(record) + "\n"
+        # Sử dụng phương thức after để đảm bảo an toàn khi cập nhật widget từ luồng khác
         self.text_widget.after(0, self.append, msg)
 
     def append(self, msg):
@@ -35,24 +35,24 @@ class TextHandler(logging.Handler):
 class MainWindow(tk.Tk):
     def __init__(self, mp_logging):
         super().__init__()
-        # Lấy instance LoggingMultiProcess thông qua get_mp_logger()
+        # Lấy instance của LoggingMultiProcess thông qua get_mp_logger()
         self.mp_logging = get_mp_logger()
 
-        # Ghi log về việc khởi chạy ứng dụng (theo điều kiện is_debug)
+        # Ghi log khởi chạy ứng dụng (theo trạng thái của is_debug)
         DEBUG_LOG("Ứng dụng Chạy VBA trên Excel (Tkinter) started.")
 
         self.title("Ứng dụng Chạy VBA trên Excel (Tkinter)")
         self.geometry("900x700")
         self.running = True
 
-        # Các biến theo dõi tiến trình.
+        # Các biến theo dõi tiến trình
         self.total_files = 0
         self.progress_count = 0
         self.progress_queue = None
         self.vba_file = None
         self.excel_directory = None
 
-        # Tạo sự kiện dừng khi chạy tác vụ dài.
+        # Tạo sự kiện dừng cho các tác vụ chạy nền dài
         self.stop_event = threading.Event()
 
         # ----------------------
@@ -61,7 +61,7 @@ class MainWindow(tk.Tk):
         self.taskbar = tk.Frame(self, bd=2, relief=tk.RIDGE, padx=5, pady=5)
         self.taskbar.pack(side="left", fill="y")
 
-        # Checkbutton để bật/tắt chế độ gỡ lỗi.
+        # Checkbutton để bật/tắt chế độ gỡ lỗi
         self.debug_var = tk.BooleanVar(value=self.mp_logging.is_debug.value)
         self.debug_check = tk.Checkbutton(
             self.taskbar,
@@ -72,7 +72,7 @@ class MainWindow(tk.Tk):
         )
         self.debug_check.pack(pady=5, anchor="w")
 
-        # Gọi hàm tạo nút trên taskbar
+        # Gọi hàm tạo các nút trên thanh công cụ (taskbar)
         self.create_taskbar_buttons()
 
         # ----------------------
@@ -81,33 +81,29 @@ class MainWindow(tk.Tk):
         right_area = tk.Frame(self, bd=2, relief=tk.SUNKEN, padx=10, pady=10)
         right_area.pack(side="left", fill="both", expand=True)
 
-        # Tạo widget Text để hiển thị log.
-        # Tạo widget Text để hiển thị log.
-        # Now use this font object in your Text widget
-        # Create a font from the common settings
+        # Tạo widget Text để hiển thị log
+        # Tạo font từ cấu hình chung và chuyển weight sang normal (không in đậm)
         common_font = tkFont.Font(font=COMMON_WIDGET_STYLE["font"])
-        # Change the weight to normal (non-bold)
         common_font.configure(weight="normal")
-
         self.log_text = tk.Text(right_area, wrap="none", font=common_font)
         self.log_text.config(state="disabled")
         self.log_text.pack(fill="both", expand=True)
 
-        # Thanh cuộn cho widget Text.
+        # Tạo thanh cuộn (scrollbar) cho widget Text
         self.v_scroll = tk.Scrollbar(self.log_text, orient="vertical", command=self.log_text.yview)
         self.log_text.configure(yscrollcommand=self.v_scroll.set)
         self.v_scroll.pack(side="right", fill="y")
 
-        # Thanh tiến trình và nhãn hiển thị phần trăm.
+        # Tạo thanh tiến trình và nhãn hiển thị phần trăm hoàn thành
         self.progress_bar = ttk.Progressbar(right_area, orient="horizontal", mode="determinate")
         self.progress_bar.pack(fill="x", pady=(5, 0))
         self.progress_label = tk.Label(right_area, text="0%", font=("Arial", 12))
         self.progress_label.pack(pady=(0, 5))
 
-        # Lên lịch cập nhật tiến trình.
+        # Lên lịch cập nhật tiến trình mỗi 1 giây (1000 ms)
         self.after_id_progress = self.after(500, self.update_progress)
 
-        # Gắn TextHandler vào QueueListener để cập nhật log trong GUI.
+        # Gắn TextHandler vào QueueListener để cập nhật log trong GUI
         if self.mp_logging.listener is not None:
             from logging import Formatter
             text_handler = TextHandler(self.log_text)
@@ -116,19 +112,16 @@ class MainWindow(tk.Tk):
         else:
             print("Cảnh báo: Không có listener hoạt động.")
 
-        # Gán sự kiện đóng cửa sổ.
+        # Thiết lập xử lý sự kiện đóng cửa sổ
         self.protocol("WM_DELETE_WINDOW", self.exit_app)
 
     def create_taskbar_buttons(self):
         """
-        Tạo các nút trên taskbar dựa trên danh sách cấu hình.
+        Tạo các nút trên thanh công cụ dựa trên danh sách cấu hình.
         
-        Mỗi nút có 2 thuộc tính chính: 'text' và 'command'.
-        Danh sách này chứa các cấu hình cho các nút (ngoại trừ checkbox).
-        Các nút sẽ được tạo và hiển thị theo thứ tự của danh sách.
+        Mỗi nút có 2 thuộc tính chính: 'text' và 'command'. Danh sách này chứa cấu hình cho các nút 
+        (ngoại trừ checkbox). Các nút sẽ được tạo và hiển thị theo thứ tự trong danh sách.
         """
-        # Danh sách các nút với văn bản và callback tương ứng.
-        # Lưu ý: Bạn có thể thêm hoặc thay đổi các nút ở đây.
         buttons_config = [
             {"text": "Lưu Log vào tập tin", "command": self.save_log},
             {"text": "Tải tệp VBA", "command": self.load_vba_file},
@@ -136,16 +129,19 @@ class MainWindow(tk.Tk):
             {"text": "Chạy VBA trên tất cả các tệp Excel", "command": self.run_vba_on_all_thread},
             {"text": "Thoát Ứng dụng", "command": self.exit_app}
         ]
-        # Tạo các nút và đóng gói (pack) chúng theo thứ tự.
         for btn_conf in buttons_config:
             btn = tk.Button(self.taskbar, text=btn_conf["text"], command=btn_conf["command"], **COMMON_WIDGET_STYLE)
             btn.pack(pady=3, fill="x", anchor="w")
 
     def toggle_debug(self):
-        new_value = self.debug_var.get()  # Boolean from the GUI
-        # Update the shared flag (using a Manager.Value)
+        """
+        Thay đổi trạng thái của chế độ gỡ lỗi (debug mode) dựa trên giá trị của checkbox.
+        Cập nhật cờ is_debug và mức độ logging tương ứng.
+        """
+        new_value = self.debug_var.get()  # Lấy giá trị boolean từ GUI
+        # Cập nhật cờ is_debug được chia sẻ (Manager.Value)
         self.mp_logging.is_debug.value = new_value  
-        # Optionally, adjust the main logger's effective level:
+        # Điều chỉnh mức độ logging của logger chính
         if new_value:
             self.mp_logging.logger.setLevel(logging.DEBUG)
         else:
@@ -173,7 +169,7 @@ class MainWindow(tk.Tk):
 
     def load_vba_file(self):
         """
-        Cho phép người dùng chọn tệp VBA và cập nhật tham chiếu.
+        Cho phép người dùng chọn tệp VBA và cập nhật tham chiếu đến tệp đó.
         """
         init_dir = self.excel_directory if self.excel_directory else os.getcwd()
         path = tk.filedialog.askopenfilename(
@@ -207,7 +203,7 @@ class MainWindow(tk.Tk):
 
     def update_progress(self):
         """
-        Cập nhật thanh tiến trình và nhãn % hoàn thành.
+        Cập nhật thanh tiến trình và nhãn hiển thị phần trăm hoàn thành.
         """
         if not self.running:
             return
@@ -222,7 +218,7 @@ class MainWindow(tk.Tk):
 
     def run_vba_on_all_thread(self):
         """
-        Khởi chạy tác vụ chạy VBA trên các tệp Excel trong luồng riêng để giữ GUI luôn phản hồi.
+        Khởi chạy tác vụ chạy VBA trên các tệp Excel trong luồng riêng để giữ cho giao diện luôn phản hồi.
         """
         self.stop_event.clear()
         self.vba_thread = threading.Thread(target=self.run_vba_on_all)
@@ -230,8 +226,8 @@ class MainWindow(tk.Tk):
 
     def run_vba_on_all(self):
         """
-        Xử lý tất cả các tệp Excel trong thư mục được chọn bằng cách sử dụng nhiều tiến trình.
-        Nếu không có tệp hay thư mục được chọn, sử dụng giá trị mặc định.
+        Xử lý tất cả các tệp Excel trong thư mục đã chọn bằng cách sử dụng nhiều tiến trình.
+        Nếu không có tệp hoặc thư mục nào được chọn, sẽ sử dụng giá trị mặc định.
         """
         DEBUG_LOG("Bắt đầu chạy VBA trên các tệp Excel.")
         dev_dir = os.environ.get('DEV') or os.getcwd()
@@ -266,10 +262,11 @@ class MainWindow(tk.Tk):
         DEBUG_LOG(f"Bắt đầu chạy VBA trên {self.total_files} tệp, chia thành {num_processes} batch")
 
         if self.mp_logging.queue is None:
-            raise ValueError("shared_log_queue must be set!")
-        # Create the multiprocess logger in the main process.
-        mp_logger = get_mp_logger()
-        shared_queue = mp_logger.queue  # Retrieve the shared logging queue
+            raise ValueError("Hàng đợi logging chia sẻ chưa được thiết lập!")
+        # Tạo hàng đợi tiến trình riêng, sử dụng Manager của mp_logger
+        mp_logger = get_mp_logger()  # Lấy instance của LoggingMultiProcess
+        self.progress_queue = mp_logger.manager.Queue()
+        shared_queue = mp_logger.queue  # Lấy hàng đợi logging chia sẻ
         shared_is_debug = mp_logger.is_debug
 
         pool = Pool(processes=num_processes, 
@@ -282,16 +279,16 @@ class MainWindow(tk.Tk):
         pool.join()
 
         import time
-        time.sleep(1)  # Thêm thời gian chờ để QueueListener xử lý các log chờ.
+        time.sleep(1)  # Thêm thời gian chờ để QueueListener xử lý các log chờ
 
         DEBUG_LOG(f"Đã chạy VBA trên {self.total_files} tệp Excel.")
 
     def exit_app(self):
         """
         Xử lý đóng ứng dụng:
-          - Dừng các tác vụ chạy nền (nếu có).
-          - Tắt hệ thống logging thông qua instance LoggingMultiProcess.
-          - Hủy bỏ các tác vụ đã lên lịch và đóng cửa sổ GUI.
+          - Dừng các tác vụ chạy nền (nếu có)
+          - Tắt hệ thống logging thông qua instance LoggingMultiProcess
+          - Hủy bỏ các tác vụ đã lên lịch và đóng cửa sổ GUI
         """
         self.running = False
         if hasattr(self, 'vba_thread') and self.vba_thread.is_alive():
