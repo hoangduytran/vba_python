@@ -1,48 +1,79 @@
+import os
 import logging
+import mpp_logger
 from mpp_logger import DEBUG_LOG, LoggingMultiProcess, SafeQueueHandler, get_mp_logger
 
-def worker_logging_setup(queue):
-    """
-    Thiết lập cấu hình logging trong tiến trình con.
+class DummyLogging:
+    def __init__(self, logger, debug_flag):
+        self.logger = logger
+        self.debug_flag = debug_flag  # This is a Manager.Value
 
-    Thao tác:
-      - In ra thông báo debug về queue đang được sử dụng.
-      - Lấy logger toàn cục với tên được định nghĩa tĩnh trong LoggingMultiProcess.
-      - Đặt mức log là DEBUG, loại bỏ mọi handler cũ và tắt propagate.
-      - Gắn một SafeQueueHandler mới (được lấy từ phương thức get_worker_handler)
-        để gửi log vào hàng đợi chia sẻ.
+    def DEBUG_LOG(self, msg):
+        # Only log if the shared debug flag is True
+        if self.debug_flag.value:
+            self.logger.debug(msg)
+
+def worker_logging_setup(shared_queue, shared_is_debug):
     """
-    print("Worker logging setup running, using queue:", queue)
+    Initialize logging for the worker process without creating a new Manager.
+    This function configures the worker's logger (named LoggingMultiProcess.MAIN_LOGGER)
+    with a SafeQueueHandler using the shared_queue, then overrides the module's _mp_logger
+    and DEBUG_LOG so that calls to DEBUG_LOG() in the worker use the worker's logger.
+    """
+    # Retrieve (or create) the logger for this worker.
     worker_logger = logging.getLogger(LoggingMultiProcess.MAIN_LOGGER)
+    worker_logger.handlers.clear()
+    
+    # Create a new SafeQueueHandler using the shared queue.
+    new_handler = LoggingMultiProcess.get_worker_handler(shared_queue)
+    worker_logger.addHandler(new_handler)
     worker_logger.setLevel(logging.DEBUG)
-    for h in worker_logger.handlers[:]:
-        worker_logger.removeHandler(h)
-    worker_logger.propagate = False
-    handler = LoggingMultiProcess.get_worker_handler(queue)
-    worker_logger.addHandler(handler)
+        
+    # Override the module-level _mp_logger with our dummy.
+    mpp_logger._mp_logger = DummyLogging(worker_logger, shared_is_debug)
+    
+    print(f"Worker logging setup running, using queue: {shared_queue}")
 
 def process_excel_file(file_path):
     """
-    Xử lý một file Excel.
+    Processes a single Excel file.
+    The worker’s logger (previously set up in worker_logging_setup()) is expected to use a SafeQueueHandler
+    so that messages sent via DEBUG_LOG() are forwarded through the shared queue.
 
-    Thao tác:
-      - Lấy logger đã được cấu hình bởi worker_logging_setup.
-      - Ghi log debug cho các bước xử lý (ví dụ: khởi tạo Excel, mở file).
-      - Trả về kết quả xử lý file.
-      - Nếu gặp lỗi, ghi log lỗi và ném ngoại lệ.
+    Note: Ensure that the worker initializer has reconfigured the global _mp_logger so that DEBUG_LOG() is fully effective.
     """
-    # Lấy logger được cấu hình bởi worker_logging_setup
-    worker_logger = logging.getLogger(LoggingMultiProcess.MAIN_LOGGER)
     try:
-        print("Processing file:", file_path)  # In thông báo ra màn hình (để debug).
-        worker_logger.debug(f"Khởi tạo Excel cho {file_path}")
-        worker_logger.debug(f"Mở file {file_path}")
-        result = f"Đã xử lý: {file_path}"
-        worker_logger.debug(result)
-        return result
+        # Also print directly for testing purposes
+        print(f"PRINTING Worker ({os.getpid()}): Starting processing of file: {file_path}")        
+        # Log from the worker using DEBUG_LOG
+        DEBUG_LOG(f"Worker ({os.getpid()}): Starting processing of file: {file_path}")
+        
+        # Simulate processing steps. For an actual implementation,
+        # uncomment and replace the code below with real Excel automation.
+        # For example:
+        # excel = win32.gencache.EnsureDispatch("Excel.Application")
+        # excel.Visible = False
+        # wb = excel.Workbooks.Open(os.path.abspath(file_path))
+        # macro_file = globals().get("global_vba_file_path", os.path.abspath("macro_module.bas"))
+        # DEBUG_LOG(f"Worker ({os.getpid()}): Importing VBA module from: {macro_file}")
+        # wb.VBProject.VBComponents.Import(macro_file)
+        # DEBUG_LOG(f"Worker ({os.getpid()}): Running macro 'ProcessWorkbook' on: {file_path}")
+        # excel.Application.Run("ProcessWorkbook")
+        # wb.Save()
+        # wb.Close()
+        # excel.Application.Quit()
+
+        # Log success
+        result_message = f"Worker ({os.getpid()}): Successfully processed {file_path}"
+        print(f"PRINTING result_message {result_message}")
+        DEBUG_LOG(result_message)        
+        return result_message
+
     except Exception as e:
-        worker_logger.error(f"Lỗi khi xử lý {file_path}: {e}")
-        raise
+        error_message = f"Worker ({os.getpid()}): Error processing {file_path}: {str(e)}"
+        DEBUG_LOG(error_message)
+        # Raising exception ensures that the error is propagated up.
+        raise Exception(error_message)
 
 def process_batch(batch, progress_queue, log_q):
     """
@@ -53,7 +84,6 @@ def process_batch(batch, progress_queue, log_q):
       - Duyệt qua các file trong batch, xử lý từng file và cập nhật tiến trình.
       - Trả về tổng số file đã xử lý.
     """
-    worker_logging_setup(log_q)
     count = 0
     for file_path in batch:
         process_excel_file(file_path)

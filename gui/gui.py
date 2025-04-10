@@ -5,6 +5,7 @@ import logging
 import glob, os, threading
 from multiprocessing import Manager, Pool
 import worker
+from worker import worker_logging_setup
 from mpp_logger import get_mp_logger, DEBUG_LOG  # Import hàm và instance global của logging
 
 
@@ -61,7 +62,7 @@ class MainWindow(tk.Tk):
         self.taskbar.pack(side="left", fill="y")
 
         # Checkbutton để bật/tắt chế độ gỡ lỗi.
-        self.debug_var = tk.BooleanVar(value=self.mp_logging.is_debug)
+        self.debug_var = tk.BooleanVar(value=self.mp_logging.is_debug.value)
         self.debug_check = tk.Checkbutton(
             self.taskbar,
             text="Gỡ Lỗi (ON/OFF)",
@@ -141,11 +142,15 @@ class MainWindow(tk.Tk):
             btn.pack(pady=3, fill="x", anchor="w")
 
     def toggle_debug(self):
-        """
-        Thay đổi trạng thái của is_debug trong LoggingMultiProcess.
-        """
-        self.mp_logging.is_debug = self.debug_var.get()
-        status = "bật" if self.mp_logging.is_debug else "tắt"
+        new_value = self.debug_var.get()  # Boolean from the GUI
+        # Update the shared flag (using a Manager.Value)
+        self.mp_logging.is_debug.value = new_value  
+        # Optionally, adjust the main logger's effective level:
+        if new_value:
+            self.mp_logging.logger.setLevel(logging.DEBUG)
+        else:
+            self.mp_logging.logger.setLevel(logging.INFO)
+        status = "bật" if new_value else "tắt"
         DEBUG_LOG(f"Chế độ gỡ lỗi được {status}")
 
     def save_log(self):
@@ -262,10 +267,15 @@ class MainWindow(tk.Tk):
 
         if self.mp_logging.queue is None:
             raise ValueError("shared_log_queue must be set!")
-        mgr = Manager()
-        self.progress_queue = mgr.Queue()
+        # Create the multiprocess logger in the main process.
+        mp_logger = get_mp_logger()
+        shared_queue = mp_logger.queue  # Retrieve the shared logging queue
+        shared_is_debug = mp_logger.is_debug
 
-        pool = Pool(processes=num_processes)
+        pool = Pool(processes=num_processes, 
+                    initializer=worker_logging_setup, 
+                    initargs=(shared_queue, shared_is_debug))
+
         for batch in batches:
             pool.apply_async(worker.process_batch, args=(batch, self.progress_queue, self.mp_logging.queue))
         pool.close()

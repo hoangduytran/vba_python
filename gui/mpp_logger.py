@@ -43,6 +43,8 @@ class LoggingMultiProcess:
         # Tạo Manager và hàng đợi chia sẻ logging.
         self.manager = Manager()
         self.queue = self.manager.Queue()
+        # Use a Manager.Value for is_debug so that it is shared among processes.
+        self.is_debug = self.manager.Value('b', True)
 
         # Tạo một tệp tạm thời để ghi log.
         temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".log")
@@ -71,9 +73,6 @@ class LoggingMultiProcess:
         # Gắn SafeQueueHandler để gửi các bản ghi log vào hàng đợi chia sẻ.
         safe_handler = SafeQueueHandler(self.queue, formatter=self.default_formatter)
         self.logger.addHandler(safe_handler)
-
-        # Đặt cờ debug thành True theo mặc định.
-        self.is_debug = True
 
     def DEBUG_LOG(self, msg):
         """
