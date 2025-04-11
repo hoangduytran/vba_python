@@ -1,12 +1,13 @@
 import tkinter as tk
 import tkinter.font as tkFont
-from tkinter import ttk, messagebox
+from tkinter import ttk, messagebox, filedialog
 import logging
 import glob, os, threading
 from multiprocessing import Manager, Pool
 import worker
 from worker import worker_logging_setup
 from mpp_logger import get_mp_logger, DEBUG_LOG  # Nhập hàm và instance global của logging
+from logtext import LogText  # Nhập lớp LogText đã được định nghĩa riêng
 
 # Kiểu giao diện chung cho các widget
 COMMON_WIDGET_STYLE = {
@@ -15,30 +16,13 @@ COMMON_WIDGET_STYLE = {
     "height": 3
 }
 
-# Một TextHandler đơn giản để cập nhật widget Text của giao diện
-class TextHandler(logging.Handler):
-    def __init__(self, text_widget):
-        super().__init__()
-        self.text_widget = text_widget
-
-    def emit(self, record):
-        msg = self.format(record) + "\n"
-        # Sử dụng phương thức after để đảm bảo an toàn khi cập nhật widget từ luồng khác
-        self.text_widget.after(0, self.append, msg)
-
-    def append(self, msg):
-        self.text_widget.configure(state="normal")
-        self.text_widget.insert(tk.END, msg)
-        self.text_widget.configure(state="disabled")
-        self.text_widget.yview(tk.END)
-
 class MainWindow(tk.Tk):
     def __init__(self, mp_logging):
         super().__init__()
         # Lấy instance của LoggingMultiProcess thông qua get_mp_logger()
         self.mp_logging = get_mp_logger()
 
-        # Ghi log khởi chạy ứng dụng (theo trạng thái của is_debug)
+        # Ghi log khởi chạy ứng dụng (theo trạng thái is_debug)
         DEBUG_LOG("Ứng dụng Chạy VBA trên Excel (Tkinter) started.")
 
         self.title("Ứng dụng Chạy VBA trên Excel (Tkinter)")
@@ -72,7 +56,7 @@ class MainWindow(tk.Tk):
         )
         self.debug_check.pack(pady=5, anchor="w")
 
-        # Gọi hàm tạo các nút trên thanh công cụ (taskbar)
+        # Gọi hàm tạo các nút trên taskbar
         self.create_taskbar_buttons()
 
         # ----------------------
@@ -81,46 +65,39 @@ class MainWindow(tk.Tk):
         right_area = tk.Frame(self, bd=2, relief=tk.SUNKEN, padx=10, pady=10)
         right_area.pack(side="left", fill="both", expand=True)
 
-        # Tạo widget Text để hiển thị log
-        # Tạo font từ cấu hình chung và chuyển weight sang normal (không in đậm)
-        common_font = tkFont.Font(font=COMMON_WIDGET_STYLE["font"])
-        common_font.configure(weight="normal")
-        self.log_text = tk.Text(right_area, wrap="none", font=common_font)
-        self.log_text.config(state="disabled")
-        self.log_text.pack(fill="both", expand=True)
+        # Thay vì tạo widget Text trực tiếp, tạo instance của LogText để bao gồm cả toolbar và vùng log
+        self.log_container = LogText(right_area)
+        self.log_container.pack(fill="both", expand=True)
 
-        # Tạo thanh cuộn (scrollbar) cho widget Text
-        self.v_scroll = tk.Scrollbar(self.log_text, orient="vertical", command=self.log_text.yview)
-        self.log_text.configure(yscrollcommand=self.v_scroll.set)
-        self.v_scroll.pack(side="right", fill="y")
-
-        # Tạo thanh tiến trình và nhãn hiển thị phần trăm hoàn thành
+        # Thanh tiến trình và nhãn hiển thị % hoàn thành
         self.progress_bar = ttk.Progressbar(right_area, orient="horizontal", mode="determinate")
         self.progress_bar.pack(fill="x", pady=(5, 0))
         self.progress_label = tk.Label(right_area, text="0%", font=("Arial", 12))
         self.progress_label.pack(pady=(0, 5))
 
-        # Lên lịch cập nhật tiến trình mỗi 1 giây (1000 ms)
+        # Lên lịch cập nhật tiến trình
         self.after_id_progress = self.after(500, self.update_progress)
 
-        # Gắn TextHandler vào QueueListener để cập nhật log trong GUI
+        # Gắn TextHandler vào QueueListener để cập nhật log trong GUI,
+        # sử dụng vùng Text của LogText (được đặt trong self.log_container.log_text)
         if self.mp_logging.listener is not None:
             from logging import Formatter
-            text_handler = TextHandler(self.log_text)
+            text_handler = TextHandler(self.log_container.log_text)
             text_handler.setFormatter(self.mp_logging.default_formatter)
+            # Kết hợp với các handler đã có của QueueListener
             self.mp_logging.listener.handlers = self.mp_logging.listener.handlers + (text_handler,)
         else:
             print("Cảnh báo: Không có listener hoạt động.")
 
-        # Thiết lập xử lý sự kiện đóng cửa sổ
+        # Gán sự kiện đóng cửa sổ
         self.protocol("WM_DELETE_WINDOW", self.exit_app)
 
     def create_taskbar_buttons(self):
         """
         Tạo các nút trên thanh công cụ dựa trên danh sách cấu hình.
-        
-        Mỗi nút có 2 thuộc tính chính: 'text' và 'command'. Danh sách này chứa cấu hình cho các nút 
-        (ngoại trừ checkbox). Các nút sẽ được tạo và hiển thị theo thứ tự trong danh sách.
+        Mỗi nút có thuộc tính 'text' và 'command'.
+        Danh sách này chứa cấu hình cho các nút (ngoại trừ checkbox).
+        Các nút được tạo và đóng gói theo thứ tự.
         """
         buttons_config = [
             {"text": "Lưu Log vào tập tin", "command": self.save_log},
@@ -135,13 +112,13 @@ class MainWindow(tk.Tk):
 
     def toggle_debug(self):
         """
-        Thay đổi trạng thái của chế độ gỡ lỗi (debug mode) dựa trên giá trị của checkbox.
-        Cập nhật cờ is_debug và mức độ logging tương ứng.
+        Thay đổi trạng thái của chế độ gỡ lỗi dựa trên giá trị của checkbox.
+        Cập nhật cờ is_debug và mức logging tương ứng.
         """
         new_value = self.debug_var.get()  # Lấy giá trị boolean từ GUI
         # Cập nhật cờ is_debug được chia sẻ (Manager.Value)
         self.mp_logging.is_debug.value = new_value  
-        # Điều chỉnh mức độ logging của logger chính
+        # Điều chỉnh mức logging của logger chính
         if new_value:
             self.mp_logging.logger.setLevel(logging.DEBUG)
         else:
@@ -153,7 +130,7 @@ class MainWindow(tk.Tk):
         """
         Lưu nội dung log từ tệp tạm vào tập tin do người dùng chỉ định.
         """
-        path = tk.filedialog.asksaveasfilename(
+        path = filedialog.asksaveasfilename(
             title="Lưu Log vào tập tin", defaultextension=".txt",
             filetypes=[("Tệp văn bản", "*.txt"), ("Tất cả các tệp", "*.*")]
         )
@@ -169,10 +146,10 @@ class MainWindow(tk.Tk):
 
     def load_vba_file(self):
         """
-        Cho phép người dùng chọn tệp VBA và cập nhật tham chiếu đến tệp đó.
+        Cho phép người dùng chọn tệp VBA và cập nhật tham chiếu.
         """
         init_dir = self.excel_directory if self.excel_directory else os.getcwd()
-        path = tk.filedialog.askopenfilename(
+        path = filedialog.askopenfilename(
             title="Chọn tệp VBA", defaultextension=".bas",
             initialdir=init_dir,
             filetypes=[("Tệp VBA", "*.bas"), ("Tất cả các tệp", "*.*")]
@@ -188,7 +165,7 @@ class MainWindow(tk.Tk):
         Cho phép người dùng chọn thư mục chứa các tệp Excel và hiển thị số lượng file được tìm thấy.
         """
         init_dir = os.path.dirname(self.vba_file) if self.vba_file else os.getcwd()
-        directory = tk.filedialog.askdirectory(
+        directory = filedialog.askdirectory(
             title="Chọn thư mục chứa các tệp Excel", initialdir=init_dir
         )
         if directory:
@@ -218,7 +195,7 @@ class MainWindow(tk.Tk):
 
     def run_vba_on_all_thread(self):
         """
-        Khởi chạy tác vụ chạy VBA trên các tệp Excel trong luồng riêng để giữ cho giao diện luôn phản hồi.
+        Khởi chạy tác vụ chạy VBA trên các tệp Excel trong luồng riêng để giữ giao diện luôn phản hồi.
         """
         self.stop_event.clear()
         self.vba_thread = threading.Thread(target=self.run_vba_on_all)
@@ -227,7 +204,7 @@ class MainWindow(tk.Tk):
     def run_vba_on_all(self):
         """
         Xử lý tất cả các tệp Excel trong thư mục đã chọn bằng cách sử dụng nhiều tiến trình.
-        Nếu không có tệp hoặc thư mục nào được chọn, sẽ sử dụng giá trị mặc định.
+        Nếu không có tệp hoặc thư mục, sử dụng giá trị mặc định.
         """
         DEBUG_LOG("Bắt đầu chạy VBA trên các tệp Excel.")
         dev_dir = os.environ.get('DEV') or os.getcwd()
@@ -263,10 +240,10 @@ class MainWindow(tk.Tk):
 
         if self.mp_logging.queue is None:
             raise ValueError("Hàng đợi logging chia sẻ chưa được thiết lập!")
-        # Tạo hàng đợi tiến trình riêng, sử dụng Manager của mp_logger
+        # Tạo hàng đợi tiến trình riêng, sử dụng Manager của mp_logging
         mp_logger = get_mp_logger()  # Lấy instance của LoggingMultiProcess
         self.progress_queue = mp_logger.manager.Queue()
-        shared_queue = mp_logger.queue  # Lấy hàng đợi logging chia sẻ
+        shared_queue = mp_logger.queue  # Hàng đợi logging chia sẻ
         shared_is_debug = mp_logger.is_debug
 
         pool = Pool(processes=num_processes, 
@@ -297,3 +274,19 @@ class MainWindow(tk.Tk):
         if self.after_id_progress is not None:
             self.after_cancel(self.after_id_progress)
         self.destroy()
+
+# Định nghĩa một TextHandler đơn giản (nếu chưa có trong dự án của bạn)
+class TextHandler(logging.Handler):
+    def __init__(self, text_widget):
+        super().__init__()
+        self.text_widget = text_widget
+
+    def emit(self, record):
+        msg = self.format(record) + "\n"
+        self.text_widget.after(0, self.append, msg)
+
+    def append(self, msg):
+        self.text_widget.configure(state="normal")
+        self.text_widget.insert(tk.END, msg)
+        self.text_widget.configure(state="normal")
+        self.text_widget.yview(tk.END)
