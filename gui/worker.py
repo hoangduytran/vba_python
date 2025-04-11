@@ -70,7 +70,7 @@ def process_excel_file(file_path):
         # Ghi log thành công
         result_message = f"Worker ({os.getpid()}): Đã xử lý thành công {file_path}"
         print(f"PRINTING result_message {result_message}")        
-        DEBUG_LOG(result_message)        
+        DEBUG_LOG(result_message)                
         return result_message
 
     except Exception as e:
