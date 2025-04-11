@@ -29,7 +29,53 @@ pip install -r requirements.txt
 
 ## usage (Sử Dụng)
 
-##### Lưu ý:
+### Giao Diện Đồ Họa
+
+Nằm trong thư mục con `gui` cho nên phải `cd gui` rồi chạy mã
+
+`
+python3 main.py
+`
+
+Ứng dụng bao gồm một giao diện đồ họa thân thiện và hiện đại, được thiết kế để hỗ trợ người dùng thao tác một cách dễ dàng. Các thành phần chính bao gồm:
+
+1. **Thanh Công Cụ (Taskbar):**
+   - **Các nút điều khiển:**
+     - **Bật/Tắt hiển thị lỗi:** Chức năng này cho phép bật/tắt các dòng `DEBUG_LOG` gắn trong mã hiển thị trên 3 phương tiện:
+        1. Văn bản tạm thời của hệ thống (temp)
+        2. Cổng thiết bị cuối, nơi thi hành `python3 main.py`
+        3. Cửa sổ log ở bên phải, nơi có thể sử dụng để quan sát, lưu văn bản log vào một tập tin và đọc, quan sát lỗi, kết quả chạy. Cái này cho phép bạn sử dụng mã `DEBUG_LOG` để liệt kê tiến trình cùng các dòng điều tra lỗi trong khi phát triển phần mềm, viết thêm những chức năng mới cho bản thân. 
+     - **Lưu Log vào tập tin:** Lưu lại nội dung log hiện tại vào một tập tin để lưu trữ hoặc chia sẻ.
+     - **Tải tệp VBA:** Cho phép người dùng chọn tệp chứa VBA macro để nhập vào Excel.
+     - **Tải thư mục Excel:** Lựa chọn thư mục chứa các tệp Excel cần xử lý.
+     - **Chạy VBA trên tất cả các tệp Excel:** Khởi chạy chế độ xử lý VBA cho tất cả các tập tin Excel trong thư mục đã chọn, sử dụng đa tiến trình nhằm tối ưu hoá tài nguyên CPU.
+     - **Thoát Ứng Dụng:** Đóng ứng dụng và giải phóng các tài nguyên liên quan.
+
+2. **Khu Vực Log và Tiến Trình:**
+   - **Khung Log (LogText):**
+     Một khung chứa vùng hiển thị log kết hợp với thanh công cụ phụ. Vùng log cho phép:
+     - Hiển thị thông báo log chi tiết và các thông báo hệ thống.
+     - Thực hiện các thao tác lưu, sao chép, dán văn bản.
+     - Điều chỉnh phông chữ, kích thước phông chữ, màu nền và màu điều khiển.
+     - Các nút trên thanh công cụ của khung log được thiết kế với kích thước lớn (sử dụng emoji và tooltip tiếng Việt) để giúp người dùng hiểu rõ chức năng của từng nút.
+
+   - **Thanh Tiến Trình:**
+     Hiển thị phần trăm hoàn thành của quy trình xử lý các tệp Excel. Thanh tiến trình được cập nhật tự động khi tiến trình con gửi thông báo qua hàng đợi tiến trình.
+
+3. **Các Cài Đặt Giao Diện:**
+   Các thuộc tính như phông chữ, màu sắc và kích thước của các control đã được cài đặt mặc định khi ứng dụng khởi chạy theo sở thích của người dùng.
+
+| Thành phần              | Mô tả                                                                                  |
+|-------------------------|----------------------------------------------------------------------------------------|
+| Taskbar (Thanh Công Cụ) | Nơi chứa các nút chức năng chính như tải tệp VBA, chạy VBA, lưu log,...                |
+| LogText                 | Khung chứa vùng hiển thị log kết hợp với thanh công cụ phụ hỗ trợ các thao tác lưu, copy, paste, thay đổi phông, tăng, giảm cỡ phông chữ, bật tắt xuống dòng để có thể quan sát toàn bộ dòng trong cửa sổ.|
+| Progress Bar            | Thanh tiến trình hiển thị phần trăm hoàn thành của quy trình xử lý các tệp Excel          |
+
+> **Lưu ý:**  
+> Trước khi chạy ứng dụng phiên bản sản xuất, người dùng cần xóa thư mục (module) `win32com/client.py` dùng để mô phỏng (testing mock) win32com đi, trước khi thi hành. Điều này đảm bảo rằng ứng dụng sẽ sử dụng phiên bản chính thức của win32com.client để tương tác với Excel.
+
+
+##### Lưu ý bản `main.py` và `main_with_callbacks.py`:
 
 Đây chỉ là một sườn bài, bạn phải áp dụng nó cụ thể vào trong trường hợp của bạn. Phải biết lấy Python về máy, cài đặt nó theo nhu cầu. Rồi lại phải biết chạy lệnh
 
