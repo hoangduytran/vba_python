@@ -89,9 +89,10 @@ class LoggingMultiProcess:
         """
         Ghi một thông báo debug bằng cách sử dụng logger toàn cục nếu is_debug được bật.
         """
-        stack = inspect.stack()
-        caller = stack[2].function
-        self.logger.debug(f'{caller}() {msg}')
+        stack = inspect.stack()[2]
+        caller = stack.function
+        lineno = stack.lineno
+        self.logger.debug(f'{caller}() - {lineno} - {msg}')
 
     def reinit(self):
         """

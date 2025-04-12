@@ -12,9 +12,10 @@ class DummyLogging:
 
     def DEBUG_LOG(self, msg):
         # Chỉ ghi log nếu cờ debug chia sẻ có giá trị True
-        stack = inspect.stack()
-        caller = stack[2].function
-        self.logger.debug(f'{caller}() {msg}')
+        stack = inspect.stack()[2]
+        caller = stack.function
+        lineno = stack.lineno
+        self.logger.debug(f'{caller}() - {lineno} - {msg}')
 
 def worker_logging_setup(shared_queue, shared_is_debug):
     """
