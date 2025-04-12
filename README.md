@@ -17,7 +17,7 @@ Thi hành VBA macro cho Excel worksheets
 - [Giấy Phép](#license)
 - [Liên Lạc](#contact)
 
-## installation
+## installation (Cài Đặt)
 
 Cách lấy về máy và cài đặt phần phụ thuộc.
 
