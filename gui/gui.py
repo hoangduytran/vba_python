@@ -207,6 +207,8 @@ class MainWindow(tk.Tk):
         Xử lý tất cả các tệp Excel trong thư mục đã chọn bằng cách sử dụng nhiều tiến trình.
         Nếu không có tệp hoặc thư mục, sử dụng giá trị mặc định.
         """
+        # khi chạy thì comment mấy dòng dưới đây lại, 
+        # từ đây
         DEBUG_LOG("Bắt đầu chạy VBA trên các tệp Excel.")
         dev_dir = os.environ.get('DEV') or os.getcwd()
         test_dir = os.path.join(dev_dir, 'test_files')
@@ -215,6 +217,7 @@ class MainWindow(tk.Tk):
         if not self.vba_file:
             self.vba_file = os.path.join(self.excel_directory, 'test_macro.bas')
         globals()["global_vba_file_path"] = self.vba_file
+        # cho đến đây, để lấy thông tin thực
 
         excel_files = glob.glob(os.path.join(self.excel_directory, "*.xlsx"))
         if not excel_files:
