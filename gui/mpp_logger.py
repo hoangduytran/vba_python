@@ -3,6 +3,7 @@ import sys
 import tempfile
 from multiprocessing import Manager
 from logging.handlers import QueueHandler, QueueListener
+import inspect
 
 class IsDebugFilter(logging.Filter):
     def __init__(self, is_debug_callable):
@@ -88,8 +89,9 @@ class LoggingMultiProcess:
         """
         Ghi một thông báo debug bằng cách sử dụng logger toàn cục nếu is_debug được bật.
         """
-        if self.is_debug:
-            self.logger.debug(msg)
+        stack = inspect.stack()
+        caller = stack[2].function
+        self.logger.debug(f'{caller}() {msg}')
 
     def reinit(self):
         """
@@ -140,5 +142,5 @@ def DEBUG_LOG(msg):
     """
     Hàm toàn cục để ghi một thông báo debug sử dụng cấu hình logging chia sẻ.
     Chỉ ghi khi is_debug được bật.
-    """
+    """    
     get_mp_logger().DEBUG_LOG(msg)

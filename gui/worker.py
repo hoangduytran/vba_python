@@ -3,6 +3,7 @@ import logging
 import mpp_logger
 from mpp_logger import DEBUG_LOG, LoggingMultiProcess, SafeQueueHandler, get_mp_logger, IsDebugFilter
 import win32com.client as win32
+import inspect
 
 class DummyLogging:
     def __init__(self, logger, debug_flag):
@@ -11,8 +12,9 @@ class DummyLogging:
 
     def DEBUG_LOG(self, msg):
         # Chỉ ghi log nếu cờ debug chia sẻ có giá trị True
-        if self.debug_flag:
-            self.logger.debug(msg)
+        stack = inspect.stack()
+        caller = stack[2].function
+        self.logger.debug(f'{caller}() {msg}')
 
 def worker_logging_setup(shared_queue, shared_is_debug):
     """
