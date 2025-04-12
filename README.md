@@ -74,6 +74,22 @@ python3 main.py
 > **Lưu ý:**  
 > Trước khi chạy ứng dụng phiên bản sản xuất, người dùng cần xóa thư mục (module) `win32com/client.py` dùng để mô phỏng (testing mock) win32com đi, trước khi thi hành. Điều này đảm bảo rằng ứng dụng sẽ sử dụng phiên bản chính thức của win32com.client để tương tác với Excel.
 
+> Đồng thời xem trong bản gui.py, thấy các dòng có đề như sau:
+```
+        # khi chạy thì comment mấy dòng dưới đây lại, 
+        # từ đây
+        DEBUG_LOG("Bắt đầu chạy VBA trên các tệp Excel.")
+        dev_dir = os.environ.get('DEV') or os.getcwd()
+        test_dir = os.path.join(dev_dir, 'test_files')
+        if not self.excel_directory:
+            self.excel_directory = os.path.join(test_dir, 'excel')
+        if not self.vba_file:
+            self.vba_file = os.path.join(self.excel_directory, 'test_macro.bas')
+        globals()["global_vba_file_path"] = self.vba_file
+        # cho đến đây, để lấy thông tin thực
+```
+> và comment chúng lại để lấy thông tin thực từ các điều khiển. Mấy dòng này chỉ là để chạy khi thử nghiệm trong khi xây dựng. Để comment chúng lại, trong vscode, thì chọn mấy dòng này và bấm <kbd>Command</kbd>+<kbd>/</kbd> (macOS), trên Windows chắc là dùng <kbd>Ctrl</kbd>+<kbd>/</kbd>.
+
 
 ##### Lưu ý bản `main.py` và `main_with_callbacks.py`:
 
