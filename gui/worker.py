@@ -1,7 +1,7 @@
 import os
 import logging
 import mpp_logger
-from mpp_logger import DEBUG_LOG, LoggingMultiProcess, SafeQueueHandler, get_mp_logger
+from mpp_logger import DEBUG_LOG, LoggingMultiProcess, SafeQueueHandler, get_mp_logger, IsDebugFilter
 import win32com.client as win32
 
 class DummyLogging:
@@ -11,7 +11,7 @@ class DummyLogging:
 
     def DEBUG_LOG(self, msg):
         # Chỉ ghi log nếu cờ debug chia sẻ có giá trị True
-        if self.debug_flag.value:
+        if self.debug_flag:
             self.logger.debug(msg)
 
 def worker_logging_setup(shared_queue, shared_is_debug):
@@ -33,6 +33,9 @@ def worker_logging_setup(shared_queue, shared_is_debug):
     # Ghi đè biến _mp_logger cấp module bằng thực thể DummyLogging của chúng ta.
     mpp_logger._mp_logger = DummyLogging(worker_logger, shared_is_debug)
     
+    # Make sure the lambda returns a boolean, without '.value'
+    worker_logger.addFilter(IsDebugFilter(lambda: mpp_logger._mp_logger.debug_flag))
+
     print(f"Worker logging setup running, using queue: {shared_queue}")
 
 def process_excel_file(file_path):
@@ -75,7 +78,8 @@ def process_excel_file(file_path):
 
     except Exception as e:
         error_message = f"Worker ({os.getpid()}): Lỗi khi xử lý {file_path}: {str(e)}"
-        DEBUG_LOG(error_message)
+        # Ghi log lỗi luôn (không phụ thuộc is_debug)
+        logging.getLogger(LoggingMultiProcess.MAIN_LOGGER).error(error_message)
         # Ném exception để đảm bảo lỗi được truyền lên.
         raise Exception(error_message)
 

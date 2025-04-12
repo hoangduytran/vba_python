@@ -6,7 +6,7 @@ import glob, os, threading
 from multiprocessing import Manager, Pool
 import worker
 from worker import worker_logging_setup
-from mpp_logger import get_mp_logger, DEBUG_LOG  # Nhập hàm và instance global của logging
+from mpp_logger import get_mp_logger, DEBUG_LOG, IsDebugFilter  # Nhập hàm và instance global của logging
 from logtext import LogText  # Nhập lớp LogText đã được định nghĩa riêng
 
 # Kiểu giao diện chung cho các widget
@@ -113,12 +113,13 @@ class MainWindow(tk.Tk):
     def toggle_debug(self):
         """
         Thay đổi trạng thái của chế độ gỡ lỗi dựa trên giá trị của checkbox.
-        Cập nhật cờ is_debug và mức logging tương ứng.
+        Khi tắt (False), các thông báo log DEBUG sẽ không được xuất ra.
         """
-        new_value = self.debug_var.get()  # Lấy giá trị boolean từ GUI
-        # Cập nhật cờ is_debug được chia sẻ (Manager.Value)
-        self.mp_logging.is_debug.value = new_value  
-        # Điều chỉnh mức logging của logger chính
+        # Lấy giá trị boolean từ GUI.
+        new_value = self.debug_var.get()
+        # Cập nhật cờ is_debug (sử dụng biến bool đơn giản, không cần .value).
+        self.mp_logging.is_debug = new_value  
+        # Điều chỉnh mức logging của logger chính.
         if new_value:
             self.mp_logging.logger.setLevel(logging.DEBUG)
         else:
@@ -206,14 +207,14 @@ class MainWindow(tk.Tk):
         Xử lý tất cả các tệp Excel trong thư mục đã chọn bằng cách sử dụng nhiều tiến trình.
         Nếu không có tệp hoặc thư mục, sử dụng giá trị mặc định.
         """
-        # DEBUG_LOG("Bắt đầu chạy VBA trên các tệp Excel.")
-        # dev_dir = os.environ.get('DEV') or os.getcwd()
-        # test_dir = os.path.join(dev_dir, 'test_files')
-        # if not self.excel_directory:
-        #     self.excel_directory = os.path.join(test_dir, 'excel')
-        # if not self.vba_file:
-        #     self.vba_file = os.path.join(self.excel_directory, 'test_macro.bas')
-        # globals()["global_vba_file_path"] = self.vba_file
+        DEBUG_LOG("Bắt đầu chạy VBA trên các tệp Excel.")
+        dev_dir = os.environ.get('DEV') or os.getcwd()
+        test_dir = os.path.join(dev_dir, 'test_files')
+        if not self.excel_directory:
+            self.excel_directory = os.path.join(test_dir, 'excel')
+        if not self.vba_file:
+            self.vba_file = os.path.join(self.excel_directory, 'test_macro.bas')
+        globals()["global_vba_file_path"] = self.vba_file
 
         excel_files = glob.glob(os.path.join(self.excel_directory, "*.xlsx"))
         if not excel_files:

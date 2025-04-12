@@ -4,6 +4,15 @@ import tempfile
 from multiprocessing import Manager
 from logging.handlers import QueueHandler, QueueListener
 
+class IsDebugFilter(logging.Filter):
+    def __init__(self, is_debug_callable):
+        super().__init__()
+        self.is_debug_callable = is_debug_callable
+    def filter(self, record):
+        if record.levelno == logging.DEBUG:
+            return self.is_debug_callable()
+        return True
+
 class SafeQueueHandler(QueueHandler):
     """
     Một QueueHandler đảm bảo rằng hàng đợi được sử dụng (queue) còn hợp lệ trước khi phát hành các bản ghi log.
@@ -73,6 +82,7 @@ class LoggingMultiProcess:
         # Gắn SafeQueueHandler để gửi các bản ghi log vào hàng đợi chia sẻ.
         safe_handler = SafeQueueHandler(self.queue, formatter=self.default_formatter)
         self.logger.addHandler(safe_handler)
+        self.logger.addFilter(IsDebugFilter(lambda: self.is_debug))
 
     def DEBUG_LOG(self, msg):
         """
