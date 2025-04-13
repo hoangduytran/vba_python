@@ -47,7 +47,7 @@ class LoggingMultiProcess:
     """
     # Đặt tên logger cố định.
     MAIN_LOGGER = "main_logger"
-    DEFAULT_FORMAT = "%(asctime)s - %(processName)s - %(levelname)s - %(message)s"
+    DEFAULT_FORMAT = "%(asctime)s, %(processName)s, %(pathname)s - hàm:%(funcName)s(), dòng số:%(lineno)d, %(levelname)s, %(message)s"
 
     def __init__(self):
         # Tạo Manager và hàng đợi chia sẻ logging.
@@ -89,11 +89,7 @@ class LoggingMultiProcess:
         """
         Ghi một thông báo debug bằng cách sử dụng logger toàn cục nếu is_debug được bật.
         """
-        stack = inspect.stack()[2]
-        file_namme=stack.filename
-        caller = stack.function
-        lineno = stack.lineno
-        self.logger.debug(f'{file_namme} - {caller}() - {lineno} - {msg}')
+        self.logger.debug(msg, stacklevel=3)
 
     def reinit(self):
         """
