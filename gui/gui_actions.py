@@ -24,10 +24,13 @@ def update_gui_filter():
     """
     current_level = LOG_LEVELS.get(gv.root.log_level_var.get(), logging.INFO)
     is_exact = gv.root.is_exact_var.get()
+    print(f'is_exact:{is_exact}')
+
     # Clear existing DynamicLevelFilter filters.
     gv.root.gui_handler.filters = [f for f in gv.root.gui_handler.filters
                                    if not isinstance(f, DynamicLevelFilter)]
     gv.root.gui_handler.addFilter(DynamicLevelFilter(current_level, is_exact))
+    reload_log_text()  # Make sure we reload
 
 def select_log_level(selected):
     level = LOG_LEVELS.get(selected, logging.INFO)
@@ -301,7 +304,7 @@ def reload_log_text():
     text_widget.configure(state="disabled")
 
     # Get the newly selected filter criteria
-    current_level = LOG_LEVELS.get(gv.log_level_var.get(), logging.INFO)
+    current_level = LOG_LEVELS.get(gv.root.log_level_var.get(), logging.INFO)
     is_exact = gv.root.is_exact_var.get()
 
     def passes_filter(rec):
