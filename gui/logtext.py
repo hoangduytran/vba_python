@@ -66,6 +66,7 @@ class Emoji(Enum):
     FONT_SIZE_UP = "🔼"
     FONT_SIZE_DOWN = "🔽"
     WRAP_TEXT = "↩️"
+    CLEAR = "🗑"  # Emoji cho nút xóa log
 
 # Lớp LogText: tạo một khung chứa thanh công cụ và vùng hiển thị log
 class LogText(tk.Frame):
@@ -109,6 +110,7 @@ class LogText(tk.Frame):
         # Cấu hình cho các nút: bao gồm emoji, command và tooltip (tiêu đề tiếng Việt)
         buttons_config = [
             {"emoji": Emoji.SAVE.value, "command": self.save_log, "tooltip": "Lưu log vào tập tin"},
+            {"emoji": Emoji.CLEAR.value, "command": self.clear_log, "tooltip": "Xóa log"},  # Nút xóa log mới
             {"emoji": Emoji.COPY.value, "command": self.copy_text, "tooltip": "Sao chép văn bản đã chọn"},
             {"emoji": Emoji.PASTE.value, "command": self.paste_text, "tooltip": "Dán văn bản từ clipboard"},
             {"emoji": Emoji.SELECT_FONTS.value, "command": self.select_fonts, "tooltip": "Chọn phông chữ"},
@@ -125,6 +127,14 @@ class LogText(tk.Frame):
             # Thêm tooltip cho mỗi nút với tiêu đề tiếng Việt
             ToolTip(btn, text=config["tooltip"])
     
+    def clear_log(self):
+        """
+        Xóa toàn bộ nội dung của vùng Text log.
+        """
+        self.log_text.configure(state="normal")
+        self.log_text.delete("1.0", tk.END)
+        self.log_text.configure(state="disabled")
+
     def insert_log(self, text):
         """
         Chèn nội dung log vào vùng Text.

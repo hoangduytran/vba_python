@@ -1,5 +1,3 @@
-# gui.py
-
 import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
 import logging
@@ -7,69 +5,34 @@ import glob, os, threading
 from multiprocessing import Pool
 import worker
 from worker import worker_logging_setup
-from mpp_logger import get_mp_logger, ExactLevelFilter
-from logtext import LogText  # Lớp LogText do bạn định nghĩa (phần giao diện hiển thị log)
+from mpp_logger import get_mp_logger, LOG_LEVELS, TextHandler, DynamicLevelFilter, PrettyFormatter
+from logtext import LogText  # Lớp LogText do bạn định nghĩa, dùng để hiển thị log trong giao diện
 
 # Khai báo biến toàn cục logger, sẽ được gán trong MainWindow
 logger = None
 
-# Kiểu giao diện chung cho các widget (đã định nghĩa)
+# Kiểu giao diện chung cho các widget
 COMMON_WIDGET_STYLE = {"font": ("Arial", 18, "bold"), "width": 25, "height": 3}
 
-# Định nghĩa các mức log với tên tiếng Việt; 
-# "NO_LOGGING" được đặt thành 100 để không hiển thị log nào khi được chọn.
-LOG_LEVELS = {
-    "NO_LOGGING": 100,   # Không hiển thị log nào trong GUI.
-    "DEBUG": logging.DEBUG,
-    "INFO": logging.INFO,
-    "WARNING": logging.WARNING,
-    "ERROR": logging.ERROR,
-    "CRITICAL": logging.CRITICAL,
-}
-
-# Lớp TextHandler để xử lý ghi log vào widget Text của Tkinter.
-class TextHandler(logging.Handler):
-    def __init__(self, text_widget):
-        super().__init__()
-        self.text_widget = text_widget
-        self.is_gui_handler = True  # Đánh dấu đây là handler dùng cho giao diện
-
-    def emit(self, record):
-        try:
-            # Gọi hàm format để định dạng bản ghi log theo định dạng của PrettyFormatter hay tương tự,
-            # sau đó thêm dấu xuống dòng.
-            msg = self.format(record) + "\n"
-            # Dùng phương thức after của widget để chèn log vào Text một cách bất đồng bộ.
-            self.text_widget.after(0, self.append, msg)
-        except Exception:
-            self.handleError(record)
-
-    def append(self, msg):
-        # Cho phép chỉnh sửa widget, chèn thông điệp log, sau đó khóa lại widget và cuộn xuống cuối.
-        self.text_widget.configure(state="normal")
-        self.text_widget.insert(tk.END, msg)
-        self.text_widget.configure(state="disabled")
-        self.text_widget.yview(tk.END)
-
-# Lớp MainWindow: cửa sổ chính giao diện Tkinter của ứng dụng.
+# -------------------------------------------------------------------------------
+# Lớp MainWindow: Giao diện chính của ứng dụng.
+# -------------------------------------------------------------------------------
 class MainWindow(tk.Tk):
     def __init__(self, mp_logging):
         super().__init__()
         self.mp_logging = mp_logging
-        
-        # Gán logger toàn cục từ mp_logging.logger cho biến toàn cục logger.
         global logger
+        # Gán biến logger toàn cục bằng logger từ hệ thống logging đa tiến trình
         logger = self.mp_logging.logger
 
-        # Ghi log cho khởi động ứng dụng (đã có thông điệp bằng tiếng Việt)
         logger.info("Ứng dụng Chạy VBA trên Excel (Tkinter) started.")
 
-        # Cài đặt các thuộc tính cho cửa sổ.
+        # Cài đặt thông tin của cửa sổ giao diện
         self.title("Ứng dụng Chạy VBA trên Excel (Tkinter)")
         self.geometry("900x700")
         self.running = True
 
-        # Khởi tạo các biến theo dõi quá trình xử lý.
+        # Các biến theo dõi tiến trình
         self.total_files = 0
         self.progress_count = 0
         self.progress_queue = None
@@ -78,12 +41,11 @@ class MainWindow(tk.Tk):
         self.stop_event = threading.Event()
 
         # ----------------------
-        # Khu vực thanh công cụ bên trái.
+        # Khu vực thanh công cụ (Taskbar) bên trái
         self.taskbar = tk.Frame(self, bd=2, relief=tk.RIDGE, padx=5, pady=5)
         self.taskbar.pack(side="left", fill="y")
 
-        # Tạo một dropdown (OptionMenu) để người dùng chọn mức log cần hiển thị.
-        # Giá trị mặc định là "INFO". Khi thay đổi, callback select_log_level sẽ được gọi.
+        # Tạo dropdown cho mức log
         self.log_level_var = tk.StringVar(value="INFO")
         self.log_level_menu = ttk.OptionMenu(
             self.taskbar, 
@@ -94,55 +56,64 @@ class MainWindow(tk.Tk):
         )
         self.log_level_menu.config(width=20)
         self.log_level_menu.pack(pady=5, anchor="w")
+        
+        # Tạo checkbox cho cờ is_exact với nhãn "Chính Xác" và tooltip (nếu cần)
+        self.is_exact_var = tk.BooleanVar(value=True)
+        self.exact_check = tk.Checkbutton(
+            self.taskbar,
+            text="Chính Xác",       # Hiển thị tiếng Việt đầy đủ
+            variable=self.is_exact_var,
+            command=self.update_gui_filter  # Khi người dùng thay đổi, cập nhật bộ lọc GUI
+        )
+        self.exact_check.pack(pady=5, anchor="w")
 
-        # Tạo các nút trên thanh công cụ.
+        # Tạo các nút trên thanh công cụ
         self.create_taskbar_buttons()
 
         # ----------------------
-        # Khu vực hiển thị chính bên phải.
+        # Khu vực hiển thị chính (Right area)
         right_area = tk.Frame(self, bd=2, relief=tk.SUNKEN, padx=10, pady=10)
         right_area.pack(side="left", fill="both", expand=True)
 
-        # Khởi tạo LogText widget để hiển thị log; LogText nhận đối tượng mp_logging để có thể thao tác với hệ thống log.
+        # Khởi tạo LogText widget để hiển thị log (giao diện hiển thị log)
         self.log_container = LogText(right_area, self.mp_logging)
         self.log_container.pack(fill="both", expand=True)
 
-        # Tạo thanh tiến trình và nhãn hiển thị % hoàn thành.
+        # Tạo thanh tiến trình và nhãn % hoàn thành
         self.progress_bar = ttk.Progressbar(right_area, orient="horizontal", mode="determinate")
         self.progress_bar.pack(fill="x", pady=(5, 0))
         self.progress_label = tk.Label(right_area, text="0%", font=("Arial", 12))
         self.progress_label.pack(pady=(0, 5))
 
-        # Lên lịch cập nhật tiến trình định kỳ.
         self.after_id_progress = self.after(500, self.update_progress)
 
-        # Gắn một TextHandler vào QueueListener để hiển thị log trong vùng Text của giao diện.
+        # Gắn TextHandler cho giao diện (GUI) vào QueueListener của hệ thống logging
         if self.mp_logging.listener is not None:
-            self.gui_handler = TextHandler(self.log_container.log_text)
-            # Sử dụng PrettyFormatter để hiển thị log theo định dạng dễ đọc.
-            from mpp_logger import PrettyFormatter  # Nếu có định nghĩa PrettyFormatter
+            # Tạo một instance của TextHandler để ghi log vào vùng Text của giao diện
+            gui_handler = TextHandler(self.log_container.log_text)
+            from mpp_logger import PrettyFormatter  # Sử dụng định nghĩa PrettyFormatter từ mpp_logger
             gui_formatter = PrettyFormatter(datefmt="%Y-%m-%dT%H:%M:%S%z")
-            self.gui_handler.setFormatter(gui_formatter)
-            # Thêm filter để hiển thị chỉ các bản ghi có mức log >= mức đã chọn.
+            gui_handler.setFormatter(gui_formatter)
+            # Tạo bộ lọc động sử dụng mức log được chọn và cờ is_exact
             current_level = LOG_LEVELS.get(self.log_level_var.get(), logging.INFO)
-            self.gui_handler.addFilter(ExactLevelFilter(current_level))
-            # Kết hợp handler mới vào danh sách các handler đã có của QueueListener.
-            self.mp_logging.listener.handlers = self.mp_logging.listener.handlers + (self.gui_handler,)
+            gui_handler.addFilter(DynamicLevelFilter(current_level, self.is_exact_var.get()))
+            # Lưu lại tham chiếu của gui_handler để dễ dàng cập nhật bộ lọc sau này
+            self.gui_handler = gui_handler
+            # Gắn gui_handler vào danh sách các handler của QueueListener (chỉ một lần)
+            self.mp_logging.listener.handlers = self.mp_logging.listener.handlers + (gui_handler,)
         else:
             print("Cảnh báo: Không có listener hoạt động.")
 
-        # Đăng ký sự kiện đóng cửa sổ.
         self.protocol("WM_DELETE_WINDOW", self.exit_app)
 
     def create_taskbar_buttons(self):
         """
-        Tạo các nút trên thanh công cụ dựa trên cấu hình:
-          - "Lưu Log vào tập tin"
-          - "Tải tệp VBA"
-          - "Tải thư mục Excel"
-          - "Chạy VBA trên tất cả các tệp Excel"
-          - "Thoát Ứng dụng"
-        Các nút được đóng gói theo kiểu chung.
+        Tạo các nút trên thanh công cụ với các chức năng:
+          - Lưu Log vào tập tin
+          - Tải tệp VBA
+          - Tải thư mục Excel
+          - Chạy VBA trên tất cả các tệp Excel
+          - Thoát Ứng dụng
         """
         buttons_config = [
             {"text": "Lưu Log vào tập tin", "command": self.save_log},
@@ -155,19 +126,35 @@ class MainWindow(tk.Tk):
             btn = tk.Button(self.taskbar, text=btn_conf["text"], command=btn_conf["command"], **COMMON_WIDGET_STYLE)
             btn.pack(pady=3, fill="x", anchor="w")
 
+    def update_gui_filter(self):
+        """
+        Cập nhật bộ lọc của GUI handler dựa trên mức log hiện tại và cờ is_exact.
+        Nếu is_exact True, chỉ hiển thị các bản ghi có mức bằng đúng mức đã chọn;
+        nếu is_exact False, hiển thị tất cả các bản ghi có mức lớn hơn hoặc bằng mức đã chọn.
+        """
+        current_level = LOG_LEVELS.get(self.log_level_var.get(), logging.INFO)
+        is_exact = self.is_exact_var.get()
+        # Loại bỏ các filter cũ đã được gắn vào GUI handler.
+        self.gui_handler.filters = [f for f in self.gui_handler.filters if not isinstance(f, DynamicLevelFilter)]
+        # Thêm filter mới với các giá trị cập nhật.
+        self.gui_handler.addFilter(DynamicLevelFilter(current_level, is_exact))
+
     def select_log_level(self, selected):
+        """
+        Hàm gọi khi người dùng chọn một mức log mới từ dropdown.
+        Cập nhật mức log của hệ thống logging và cập nhật bộ lọc trên GUI.
+        """
         level = LOG_LEVELS.get(selected, logging.INFO)
         self.mp_logging.select_log_level(level)
-        # If you saved a reference to the GUI handler, update its filter explicitly:
-        self.gui_handler.filters = []
-        self.gui_handler.addFilter(ExactLevelFilter(level))
+        self.update_gui_filter()  # Cập nhật bộ lọc của GUI theo mức log và is_exact hiện tại.
         logger.info(f"Log level changed to {selected}")
 
     def save_log(self):
         """
         Mở hộp thoại lưu file với hai định dạng: JSON và TXT.
-        Nếu người dùng chọn JSON thì copy file log tạm (chứa log dưới định dạng JSON) sang file được chọn.
-        Nếu người dùng chọn TXT, lưu nội dung của vùng Text hiển thị log.
+        Nếu người dùng chọn JSON, file log tạm (đã ghi log dưới định dạng JSON)
+        sẽ được copy sang file được chọn.
+        Nếu người dùng chọn TXT, nội dung hiển thị trong log_text sẽ được lưu.
         """
         import shutil
         path = filedialog.asksaveasfilename(
@@ -178,10 +165,8 @@ class MainWindow(tk.Tk):
         if path:
             try:
                 if path.lower().endswith(".json"):
-                    # Nếu chọn JSON: copy file log tạm đã được ghi dưới định dạng JSON.
                     shutil.copyfile(self.mp_logging.log_temp_file_path, path)
                 else:
-                    # Nếu chọn TXT: lấy nội dung của vùng Text và lưu ra file.
                     with open(path, "w", encoding="utf-8") as f:
                         f.write(self.log_container.log_text.get("1.0", tk.END))
                 messagebox.showinfo("Thông báo", "Log đã được lưu thành công.")
@@ -191,7 +176,7 @@ class MainWindow(tk.Tk):
 
     def load_vba_file(self):
         """
-        Cho phép người dùng chọn tệp VBA và cập nhật đường dẫn của tệp đó.
+        Cho phép người dùng chọn tệp VBA và cập nhật đường dẫn của tệp.
         Sau đó, ghi log thông báo đã tải tệp VBA.
         """
         init_dir = self.excel_directory if self.excel_directory else os.getcwd()
@@ -210,7 +195,7 @@ class MainWindow(tk.Tk):
     def load_excel_directory(self):
         """
         Cho phép người dùng chọn thư mục chứa tệp Excel.
-        Sau đó kiểm tra số lượng tệp Excel có trong thư mục và ghi log phù hợp.
+        Kiểm tra và ghi log số lượng tệp Excel được tìm thấy trong thư mục.
         """
         init_dir = os.path.dirname(self.vba_file) if self.vba_file else os.getcwd()
         directory = filedialog.askdirectory(
@@ -230,7 +215,7 @@ class MainWindow(tk.Tk):
 
     def update_progress(self):
         """
-        Cập nhật thanh tiến trình và nhãn phần trăm hoàn thành dựa trên số lượng tệp đã xử lý.
+        Cập nhật thanh tiến trình và nhãn % hoàn thành dựa trên số lượng tệp đã xử lý.
         """
         if not self.running:
             return
@@ -245,7 +230,8 @@ class MainWindow(tk.Tk):
 
     def run_vba_on_all_thread(self):
         """
-        Khởi chạy tác vụ chạy macro VBA trên tất cả các tệp Excel trong một luồng riêng để giao diện không bị treo.
+        Khởi chạy tác vụ chạy macro VBA trên tất cả các tệp Excel
+        trong một luồng riêng để giao diện không bị treo.
         """
         self.stop_event.clear()
         self.vba_thread = threading.Thread(target=self.run_vba_on_all)
@@ -253,11 +239,11 @@ class MainWindow(tk.Tk):
 
     def run_vba_on_all(self):
         """
-        Thực hiện các bước xử lý:
-          - Đọc thông tin từ giao diện (đường dẫn tệp VBA và thư mục Excel)
-          - Tìm tệp Excel trong thư mục đã chọn
-          - Phân lô các tệp Excel và khởi chạy các tiến trình xử lý
-          - Cập nhật tiến trình và ghi log cho các bước trên.
+        Thực hiện xử lý:
+          - Đọc thông tin từ giao diện.
+          - Tìm các tệp Excel trong thư mục đã chọn.
+          - Phân lô các tệp Excel và khởi chạy các tiến trình xử lý.
+          - Cập nhật tiến trình và ghi log các bước thực hiện.
         """
         logger.info("Bắt đầu chạy VBA trên các tệp Excel.")
         dev_dir = os.environ.get('DEV') or os.getcwd()
@@ -316,9 +302,9 @@ class MainWindow(tk.Tk):
     def exit_app(self):
         """
         Xử lý đóng ứng dụng:
-          - Dừng các tác vụ chạy nền (nếu có)
-          - Tắt hệ thống logging thông qua instance mp_logging
-          - Hủy bỏ các tác vụ đã lên lịch và đóng cửa sổ GUI
+          - Dừng các tác vụ chạy nền.
+          - Tắt hệ thống logging thông qua instance mp_logging.
+          - Hủy bỏ các tác vụ đã lên lịch và đóng cửa sổ giao diện.
         """
         self.running = False
         if hasattr(self, 'vba_thread') and self.vba_thread.is_alive():

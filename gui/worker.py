@@ -37,7 +37,7 @@ def process_excel_file(file_path):
         logger.info(f"Nhập module VBA từ {macro_file} vào {file_path}")
         wb.VBProject.VBComponents.Import(macro_file)
         
-        logger.info(f"Chạy macro 'ProcessWorkbook' trên {file_path}")
+        logger.warning(f"Chạy macro 'ProcessWorkbook' trên {file_path}")
         excel.Application.Run("ProcessWorkbook")
         
         wb.Save()
@@ -48,12 +48,12 @@ def process_excel_file(file_path):
         print(result_message)
         logger.debug(result_message)
         if '0003' in file_path:
-            raise RuntimeError('ERROR LOGGING SHOULD RAISED')
+            raise RuntimeError('CRITICAL LOGGING SHOULD RAISED')
         return result_message
 
     except Exception as e:
         error_message = f"Worker ({os.getpid()}): Lỗi khi xử lý {file_path}: {str(e)}"
-        logger.error(error_message)
+        logger.critical(error_message)
         raise Exception(error_message)
 
 def process_batch(batch, progress_queue, log_q):

@@ -1,9 +1,65 @@
+import tkinter as tk
 import logging
 import sys
 import tempfile
 from multiprocessing import Manager
 from logging.handlers import QueueHandler, QueueListener
 import json
+
+
+# Định nghĩa các mức log với tên tiếng Việt; 
+# "NO_LOGGING" được đặt thành 100 để không hiển thị log nào khi được chọn.
+LOG_LEVELS = {
+    "NO_LOGGING": 100,   # Không hiển thị log nào trong GUI.
+    "INFO": logging.INFO,
+    "WARNING": logging.WARNING,
+    "DEBUG": logging.DEBUG,
+    "ERROR": logging.ERROR,
+    "CRITICAL": logging.CRITICAL,
+}
+
+# Lớp TextHandler để xử lý ghi log vào widget Text của Tkinter.
+class TextHandler(logging.Handler):
+    def __init__(self, text_widget):
+        super().__init__()
+        self.text_widget = text_widget
+        self.is_gui_handler = True  # Đánh dấu đây là handler dùng cho giao diện
+
+    def emit(self, record):
+        try:
+            # Gọi hàm format để định dạng bản ghi log theo định dạng của PrettyFormatter hay tương tự,
+            # sau đó thêm dấu xuống dòng.
+            msg = self.format(record) + "\n"
+            # Dùng phương thức after của widget để chèn log vào Text một cách bất đồng bộ.
+            self.text_widget.after(0, self.append, msg)
+        except Exception:
+            self.handleError(record)
+
+    def append(self, msg):
+        # Cho phép chỉnh sửa widget, chèn thông điệp log, sau đó khóa lại widget và cuộn xuống cuối.
+        self.text_widget.configure(state="normal")
+        self.text_widget.insert(tk.END, msg)
+        self.text_widget.configure(state="disabled")
+        self.text_widget.yview(tk.END)
+
+
+# -------------------------------------------------------------------------------
+# Định nghĩa lớp DynamicLevelFilter: lọc bản ghi log dựa trên mức log và cờ is_exact.
+#
+# Khi is_exact là True, chỉ cho phép các bản ghi có mức log bằng chính xác giá trị đã chọn.
+# Khi is_exact là False, cho phép tất cả các bản ghi có mức log lớn hơn hoặc bằng giá trị đã chọn.
+# -------------------------------------------------------------------------------
+class DynamicLevelFilter(logging.Filter):
+    def __init__(self, level, is_exact):
+        super().__init__()
+        self.level = level      # Mức log đã chọn
+        self.is_exact = is_exact  # Cờ is_exact: True nếu chỉ hiển thị mức chính xác, False nếu hiển thị từ mức đó trở lên
+
+    def filter(self, record):
+        if self.is_exact:
+            return record.levelno == self.level
+        else:
+            return record.levelno >= self.level
 
 # -------------------------------------------------------------------------------
 # ExactLevelFilter: Bộ lọc chỉ cho phép các bản ghi log có mức (level)
@@ -155,16 +211,20 @@ class LoggingMultiProcess:
         Chỉ cho phép hiển thị các bản ghi log có mức chính xác bằng new_level.
         """
         self.log_level.value = new_level
-        # Cập nhật bộ lọc cho các handler của logger
+        # Update filters on the logger's handlers (terminal and file output):
         for handler in self.logger.handlers:
-            # Loại bỏ các ExactLevelFilter cũ nếu có
-            handler.filters = [f for f in handler.filters if not isinstance(f, ExactLevelFilter)]
-            # Thêm bộ lọc mới chỉ cho phép bản ghi log có mức bằng new_level
-            handler.addFilter(ExactLevelFilter(new_level))
-        # Cập nhật bộ lọc cho các handler của QueueListener (terminal và file handler)
+            # Remove any existing DynamicLevelFilter (we check using a custom attribute "is_dynamic")
+            handler.filters = [f for f in handler.filters if not hasattr(f, "is_dynamic")]
+            # For non-GUI handlers, we set is_exact to False (i.e. allow upward filtering)
+            filt = DynamicLevelFilter(new_level, False)
+            filt.is_dynamic = True  # mark it so we can detect it later
+            handler.addFilter(filt)
+        # Update filters for the handlers in the QueueListener (terminal and file output)
         for handler in self.listener.handlers:
-            handler.filters = [f for f in handler.filters if not isinstance(f, ExactLevelFilter)]
-            handler.addFilter(ExactLevelFilter(new_level))
+            handler.filters = [f for f in handler.filters if not hasattr(f, "is_dynamic")]
+            filt = DynamicLevelFilter(new_level, False)
+            filt.is_dynamic = True
+            handler.addFilter(filt)
 
     @classmethod
     def get_worker_handler(cls, queue):
