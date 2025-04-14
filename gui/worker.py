@@ -17,7 +17,7 @@ def worker_logging_setup(shared_queue, shared_log_level):
     worker_logger.handlers.clear()
     new_handler = LoggingMultiProcess.get_worker_handler(shared_queue)
     worker_logger.addHandler(new_handler)
-    worker_logger.setLevel(logging.DEBUG)
+    worker_logger.setLevel(shared_log_level)
     worker_logger.info(f"Worker logging setup complete. GUI filter level = {shared_log_level}")
     
     global logger
@@ -46,7 +46,9 @@ def process_excel_file(file_path):
 
         result_message = f"Worker ({os.getpid()}): Đã xử lý thành công {file_path}"
         print(result_message)
-        logger.info(result_message)
+        logger.debug(result_message)
+        if '0003' in file_path:
+            raise RuntimeError('ERROR LOGGING SHOULD RAISED')
         return result_message
 
     except Exception as e:

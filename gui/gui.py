@@ -96,7 +96,7 @@ class MainWindow(tk.Tk):
             from mpp_logger import PrettyFormatter  # or simply create inline
             gui_formatter = PrettyFormatter(datefmt="%Y-%m-%dT%H:%M:%S%z")
             gui_handler.setFormatter(gui_formatter)
-            # Apply a filter so that only records at or above the chosen level are displayed.
+            # After creating your TextHandler instance (gui_handler)
             current_level = LOG_LEVELS.get(self.log_level_var.get(), logging.INFO)
             gui_handler.addFilter(lambda record: record.levelno >= current_level)
             self.mp_logging.listener.handlers = self.mp_logging.listener.handlers + (gui_handler,)

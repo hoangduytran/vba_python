@@ -6,6 +6,14 @@ from multiprocessing import Manager
 from logging.handlers import QueueHandler, QueueListener
 import json
 
+class ExactLevelFilter(logging.Filter):
+    def __init__(self, level):
+        super().__init__()
+        self.level = level
+
+    def filter(self, record):
+        return record.levelno == self.level
+
 # --- Formatter that produces JSON output (for storage) ---
 class JsonFormatter(logging.Formatter):
     def format(self, record):
@@ -103,7 +111,16 @@ class LoggingMultiProcess:
 
     def select_log_level(self, new_level):
         self.log_level.value = new_level
-        # (Any GUI handler's filter should be updated in the GUI module.)
+        # Update the filters on logger handlers (like the QueueHandler and MemoryLogHandler)
+        for handler in self.logger.handlers:
+            # Remove any previous ExactLevelFilter instances.
+            handler.filters = [f for f in handler.filters if not isinstance(f, ExactLevelFilter)]
+            # Add the new filter.
+            handler.addFilter(ExactLevelFilter(new_level))
+        # Also update the filters on handlers used by the QueueListener (terminal and file output)
+        for handler in self.listener.handlers:
+            handler.filters = [f for f in handler.filters if not isinstance(f, ExactLevelFilter)]
+            handler.addFilter(ExactLevelFilter(new_level))
 
     @classmethod
     def get_worker_handler(cls, queue):
