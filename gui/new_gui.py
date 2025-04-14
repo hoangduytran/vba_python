@@ -41,11 +41,12 @@ class MainWindow(tk.Tk):
         self.taskbar.pack(side="left", fill="y")
 
         # Log level dropdown control.
-        self.log_level_var = tk.StringVar(value="INFO")
+        self.log_level_var = tk.StringVar(value="DEBUG")
+        gv.log_level_var = self.log_level_var  # So that gui_actions.py can see it via gv.log_level_var
         self.log_level_menu = ttk.OptionMenu(
             self.taskbar,
             self.log_level_var,
-            "INFO",
+            "DEBUG",
             *LOG_LEVELS.keys(),
             command=action_list["select_log_level"]
         )
@@ -54,6 +55,7 @@ class MainWindow(tk.Tk):
 
         # Checkbox for exact filter control.
         self.is_exact_var = tk.BooleanVar(value=True)
+        gv.is_exact_var = self.is_exact_var
         self.exact_check = tk.Checkbutton(
             self.taskbar,
             text="Chính Xác",

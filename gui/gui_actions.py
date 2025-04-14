@@ -30,13 +30,10 @@ def update_gui_filter():
     gv.root.gui_handler.addFilter(DynamicLevelFilter(current_level, is_exact))
 
 def select_log_level(selected):
-    """
-    Called when the user selects a new log level.
-    Update the global logging level and update the GUI filter.
-    """
     level = LOG_LEVELS.get(selected, logging.INFO)
-    gv.root.mp_logging.select_log_level(level)
+    gv.mp_logging.select_log_level(level)
     update_gui_filter()
+    reload_log_text()   # <<--- Add this line
     logger.info(f"Log level changed to {selected}")
 
 def save_log():
@@ -290,6 +287,43 @@ def exit_app():
     if gv.root.after_id_progress is not None:
         gv.root.after_cancel(gv.root.after_id_progress)
     gv.root.destroy()
+
+
+def reload_log_text():
+    """
+    Clear the log text widget and re-insert only those records
+    that match the currently selected log level and exact-flag.
+    """
+    # Clear the text area
+    text_widget = gv.root.log_container.log_text
+    text_widget.configure(state="normal")
+    text_widget.delete("1.0", tk.END)
+    text_widget.configure(state="disabled")
+
+    # Get the newly selected filter criteria
+    current_level = LOG_LEVELS.get(gv.log_level_var.get(), logging.INFO)
+    is_exact = gv.root.is_exact_var.get()
+
+    def passes_filter(rec):
+        record_level = logging._nameToLevel.get(rec["level"], 0)
+        return (record_level == current_level) if is_exact else (record_level >= current_level)
+
+    # Re-insert only the records that pass the filter
+    for rec in gv.mp_logging.log_store:
+        if passes_filter(rec):
+            # Format the record in a user-friendly way
+            s = (
+                f"mã thời gian: {rec['time stamp']}\n"
+                f"tên tiến trình: {rec['process name']}\n"
+                f"tên tệp tin: {rec['filename']}\n"
+                f"hàm:{rec['function']}\n"
+                f"dòng số:{rec['line number']}\n"
+                f"cấp độ: {rec['level']}\n"
+                f"thông điệp: {rec['message']}\n"
+            )
+            gv.root.log_container.insert_log(s)
+
+
 
 # Register all callback functions in an action_list dictionary.
 action_list = {

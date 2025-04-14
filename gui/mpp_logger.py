@@ -11,9 +11,9 @@ import json
 # "NO_LOGGING" được đặt thành 100 để không hiển thị log nào khi được chọn.
 LOG_LEVELS = {
     "NO_LOGGING": 100,   # Không hiển thị log nào trong GUI.
+    "DEBUG": logging.DEBUG,
     "INFO": logging.INFO,
     "WARNING": logging.WARNING,
-    "DEBUG": logging.DEBUG,
     "ERROR": logging.ERROR,
     "CRITICAL": logging.CRITICAL,
 }
@@ -184,11 +184,6 @@ class LoggingMultiProcess:
         file_handler = logging.FileHandler(self.log_temp_file_path, mode="w", encoding="utf-8")
         file_handler.setFormatter(self.json_formatter)
 
-        # Thiết lập QueueListener để lắng nghe hàng đợi và gửi log đến terminal và file
-        self.listener = QueueListener(self.queue, terminal_handler, file_handler)
-        self.listener.start()
-        print("Temporary log file:", self.log_temp_file_path)
-
         # Danh sách nội bộ để lưu trữ các bản ghi log dưới dạng dict (sau khi định dạng JSON)
         self.log_store = []
 
@@ -204,6 +199,12 @@ class LoggingMultiProcess:
         self.logger.addHandler(memory_handler)
         # (Lưu ý: Việc xuất log ra terminal và file được xử lý thông qua QueueListener.
         #  Handler dành cho GUI sẽ được thêm sau trong module GUI.)
+
+        # Thiết lập QueueListener để lắng nghe hàng đợi và gửi log đến terminal và file
+        self.listener = QueueListener(self.queue, terminal_handler, file_handler, memory_handler)
+        self.listener.start()
+        print("Temporary log file:", self.log_temp_file_path)
+
 
     def select_log_level(self, new_level):
         """

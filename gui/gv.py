@@ -23,3 +23,5 @@ class Gvar:
     total_files = 0           # Total Excel files to process
     progress_count = 0        # Count of processed files
     progress_queue = None     # Queue for processing progress
+    log_level_var = None
+    is_exact_var = None

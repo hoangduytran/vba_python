@@ -46,11 +46,11 @@ class MainWindow(tk.Tk):
         self.taskbar.pack(side="left", fill="y")
 
         # Tạo dropdown cho mức log
-        self.log_level_var = tk.StringVar(value="INFO")
+        self.log_level_var = tk.StringVar(value="DEBUG")
         self.log_level_menu = ttk.OptionMenu(
             self.taskbar, 
             self.log_level_var, 
-            "INFO", 
+            "DEBUG", 
             *LOG_LEVELS.keys(), 
             command=self.select_log_level
         )
