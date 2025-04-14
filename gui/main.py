@@ -2,9 +2,11 @@
 
 # Nhập hàm get_mp_logger() từ module mpp_logger, hàm này trả về đối tượng quản lý logging đa tiến trình.
 from mpp_logger import get_mp_logger
+import gui_actions
 
 # Nhập lớp MainWindow từ module gui, đây là cửa sổ giao diện chính của ứng dụng.
-from gui import MainWindow
+from new_gui import MainWindow
+from gv import Gvar as gv
 
 # Khai báo biến toàn cục 'logger'; biến này sẽ được gán bằng logger chính sau khi khởi tạo trong hàm main.
 logger = None
@@ -19,14 +21,17 @@ def main():
     # Gán logger toàn cục bằng logger của instance mp_logger.
     # Sau dòng này, biến logger sẽ được sử dụng ở các nơi khác trong ứng dụng để gọi các hàm logger.info, logger.error, ...
     logger = mp_logger.logger
-    
+    gv.mp_logging = mp_logger
+    gv.logger = logger
+    gui_actions.logger = logger
+
     # Tạo cửa sổ giao diện chính của ứng dụng, truyền đối tượng mp_logger vào MainWindow
     # để giao diện có thể sử dụng hệ thống logging đa tiến trình đã được cấu hình.
-    window = MainWindow(mp_logger)
+    window = MainWindow()
     
     # Thiết lập sự kiện đóng cửa sổ: khi người dùng tắt cửa sổ (sự kiện "WM_DELETE_WINDOW"),
     # hàm exit_app của MainWindow sẽ được gọi để thực hiện các tác vụ dọn dẹp (shutdown hệ thống logging, kết thúc vòng lặp, …)
-    window.protocol("WM_DELETE_WINDOW", window.exit_app)
+    window.protocol("WM_DELETE_WINDOW", gui_actions.action_list["exit_app"])
     
     # Khởi chạy vòng lặp chính của Tkinter để giao diện hiển thị và xử lý sự kiện.
     window.mainloop()
