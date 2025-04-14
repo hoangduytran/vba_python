@@ -7,7 +7,7 @@ import glob, os, threading
 from multiprocessing import Pool
 import worker
 from worker import worker_logging_setup
-from mpp_logger import get_mp_logger
+from mpp_logger import get_mp_logger, ExactLevelFilter
 from logtext import LogText  # Lớp LogText do bạn định nghĩa (phần giao diện hiển thị log)
 
 # Khai báo biến toàn cục logger, sẽ được gán trong MainWindow
@@ -118,16 +118,16 @@ class MainWindow(tk.Tk):
 
         # Gắn một TextHandler vào QueueListener để hiển thị log trong vùng Text của giao diện.
         if self.mp_logging.listener is not None:
-            gui_handler = TextHandler(self.log_container.log_text)
+            self.gui_handler = TextHandler(self.log_container.log_text)
             # Sử dụng PrettyFormatter để hiển thị log theo định dạng dễ đọc.
             from mpp_logger import PrettyFormatter  # Nếu có định nghĩa PrettyFormatter
             gui_formatter = PrettyFormatter(datefmt="%Y-%m-%dT%H:%M:%S%z")
-            gui_handler.setFormatter(gui_formatter)
+            self.gui_handler.setFormatter(gui_formatter)
             # Thêm filter để hiển thị chỉ các bản ghi có mức log >= mức đã chọn.
             current_level = LOG_LEVELS.get(self.log_level_var.get(), logging.INFO)
-            gui_handler.addFilter(lambda record: record.levelno >= current_level)
+            self.gui_handler.addFilter(ExactLevelFilter(current_level))
             # Kết hợp handler mới vào danh sách các handler đã có của QueueListener.
-            self.mp_logging.listener.handlers = self.mp_logging.listener.handlers + (gui_handler,)
+            self.mp_logging.listener.handlers = self.mp_logging.listener.handlers + (self.gui_handler,)
         else:
             print("Cảnh báo: Không có listener hoạt động.")
 
@@ -156,12 +156,11 @@ class MainWindow(tk.Tk):
             btn.pack(pady=3, fill="x", anchor="w")
 
     def select_log_level(self, selected):
-        """
-        Hàm gọi khi người dùng chọn một mức log mới từ dropdown.
-        Cập nhật mức log của hệ thống logging và ghi log lại thay đổi.
-        """
         level = LOG_LEVELS.get(selected, logging.INFO)
         self.mp_logging.select_log_level(level)
+        # If you saved a reference to the GUI handler, update its filter explicitly:
+        self.gui_handler.filters = []
+        self.gui_handler.addFilter(ExactLevelFilter(level))
         logger.info(f"Log level changed to {selected}")
 
     def save_log(self):
