@@ -3,6 +3,8 @@ from tkinter import ttk, filedialog, messagebox
 import tkinter.font as tkFont
 from enum import Enum
 
+logger = None
+
 # Lớp ToolTip: hiển thị tooltip khi con trỏ chuột di chuyển vào widget
 class ToolTip:
     def __init__(self, widget, text='Thông tin'):
@@ -67,13 +69,18 @@ class Emoji(Enum):
 
 # Lớp LogText: tạo một khung chứa thanh công cụ và vùng hiển thị log
 class LogText(tk.Frame):
-    def __init__(self, master=None, **kwargs):
+    def __init__(self, master=None, mp_logging = None, **kwargs):
         """
         Khởi tạo LogText:
           - Tạo một frame chứa thanh công cụ nằm ở trên và vùng hiển thị log phía dưới.
           - Bao gồm phương thức chèn log và các chức năng của thanh công cụ.
         """
         super().__init__(master, **kwargs)
+        global logger
+
+        self.mp_logging = mp_logging
+        logger = self.mp_logging.logger  # set global logger
+
         # Tạo khung thanh công cụ (toolbar) ở trên cùng
         self.toolbar = tk.Frame(self)
         self.toolbar.pack(side="top", fill="x")
@@ -101,7 +108,7 @@ class LogText(tk.Frame):
         """
         # Cấu hình cho các nút: bao gồm emoji, command và tooltip (tiêu đề tiếng Việt)
         buttons_config = [
-            {"emoji": Emoji.SAVE.value, "command": self.save_text, "tooltip": "Lưu log vào tập tin"},
+            {"emoji": Emoji.SAVE.value, "command": self.save_log, "tooltip": "Lưu log vào tập tin"},
             {"emoji": Emoji.COPY.value, "command": self.copy_text, "tooltip": "Sao chép văn bản đã chọn"},
             {"emoji": Emoji.PASTE.value, "command": self.paste_text, "tooltip": "Dán văn bản từ clipboard"},
             {"emoji": Emoji.SELECT_FONTS.value, "command": self.select_fonts, "tooltip": "Chọn phông chữ"},
@@ -128,19 +135,32 @@ class LogText(tk.Frame):
         self.log_text.configure(state="normal")
         self.log_text.see(tk.END)
     
-    def save_text(self):
+    def save_log(self):
         """
-        Cho phép người dùng lưu nội dung vùng Text vào một tập tin.
+        When the user chooses to save the log, open a save dialog with file type options for both
+        a text file (*.txt) and a JSON file (*.json). If a text file is chosen, write out the content
+        of the log text widget. If a JSON file is chosen, copy the temporary log file (which contains
+        JSON-formatted logs) to the chosen filename.
         """
-        filepath = filedialog.asksaveasfilename(
-            title="Lưu log vào tập tin",
+        import shutil
+        # Open the save dialog with two format choices.
+        path = filedialog.asksaveasfilename(
+            title="Lưu Log vào tập tin",
             defaultextension=".txt",
-            filetypes=[("Tệp văn bản", "*.txt"), ("Tất cả các tệp", "*.*")]
+            filetypes=[("Tệp văn bản (*.txt)", "*.txt"), ("Tệp JSON (*.json)", "*.json")]
         )
-        if filepath:
+        if path:
             try:
-                with open(filepath, "w", encoding="utf-8") as f:
-                    f.write(self.log_text.get("1.0", tk.END))
+                if path.lower().endswith(".json"):
+                    # For JSON, simply copy the temporary log file,
+                    # which is written in JSON-line format.
+                    shutil.copyfile(self.mp_logging.log_temp_file_path, path)
+                else:
+                    # For .txt, write out the human-readable log text (from the LogText widget).
+                    with open(path, "w", encoding="utf-8") as f:
+                        f.write(self.log_text.get("1.0", tk.END))
+                messagebox.showinfo("Thông báo", "Log đã được lưu thành công.")
+                logger.info("Log đã được lưu thành công")
             except Exception as e:
                 messagebox.showerror("Lỗi", f"Lỗi khi lưu log: {e}")
     

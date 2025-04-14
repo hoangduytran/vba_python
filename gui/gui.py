@@ -80,7 +80,7 @@ class MainWindow(tk.Tk):
         right_area = tk.Frame(self, bd=2, relief=tk.SUNKEN, padx=10, pady=10)
         right_area.pack(side="left", fill="both", expand=True)
 
-        self.log_container = LogText(right_area)
+        self.log_container = LogText(right_area, self.mp_logging)
         self.log_container.pack(fill="both", expand=True)
 
         self.progress_bar = ttk.Progressbar(right_area, orient="horizontal", mode="determinate")

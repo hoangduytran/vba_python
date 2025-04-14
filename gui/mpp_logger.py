@@ -86,8 +86,9 @@ class LoggingMultiProcess:
         terminal_handler = logging.StreamHandler(sys.stdout)
         terminal_handler.setFormatter(self.pretty_formatter)
 
+        # Change file_handler to use JSON formatter so that each log line is a JSON dictionary.
         file_handler = logging.FileHandler(self.log_temp_file_path, mode="w", encoding="utf-8")
-        file_handler.setFormatter(self.pretty_formatter)
+        file_handler.setFormatter(self.json_formatter)
 
         # Set up a QueueListener that listens on the shared queue.
         self.listener = QueueListener(self.queue, terminal_handler, file_handler)
