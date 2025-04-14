@@ -1,144 +1,124 @@
+# mpp_logger.py
 import logging
 import sys
 import tempfile
 from multiprocessing import Manager
 from logging.handlers import QueueHandler, QueueListener
-import inspect
+import json
 
-class IsDebugFilter(logging.Filter):
-    def __init__(self, is_debug_callable):
+# --- Custom JSON Formatter ---
+class JsonFormatter(logging.Formatter):
+    def format(self, record):
+        # Compute the message.
+        record.message = record.getMessage()
+        # Always compute asctime using the configured datefmt.
+        record.asctime = self.formatTime(record, self.datefmt)
+        log_record = {
+            "time stamp": record.asctime,
+            "process name": record.processName,
+            "filename": record.pathname,
+            "function": f"hàm:{record.funcName}()",
+            "line number": f"dòng số:{record.lineno}",
+            "level": record.levelname,
+            "message": record.message
+        }
+        return json.dumps(log_record)
+
+# --- Filter for the GUI handler ---
+class GuiLogFilter(logging.Filter):
+    def __init__(self, allowed_level):
         super().__init__()
-        self.is_debug_callable = is_debug_callable
+        self.allowed_level = allowed_level
+
     def filter(self, record):
-        if record.levelno == logging.DEBUG:
-            return self.is_debug_callable()
-        return True
+        return record.levelno >= self.allowed_level
 
-class SafeQueueHandler(QueueHandler):
-    """
-    Một QueueHandler đảm bảo rằng hàng đợi được sử dụng (queue) còn hợp lệ trước khi phát hành các bản ghi log.
-    Điều này giúp tránh lỗi (ví dụ trong quá trình tắt hệ thống) nếu queue là None.
-    """
-    def __init__(self, queue, formatter=None):
-        super().__init__(queue)
-        if formatter:
-            self.setFormatter(formatter)
-    
-    def emit(self, record):
-        # Kiểm tra nếu queue không còn hợp lệ thì không làm gì.
-        if not self.queue:
-            return
-        try:
-            self.queue.put_nowait(record)
-        except Exception:
-            self.handleError(record)
-
+# --- Main multiprocess logging class ---
 class LoggingMultiProcess:
-    """
-    Bao bọc cấu hình logging cho đa tiến trình.
-    
-    Lớp này tạo ra:
-      - Một Manager và một hàng đợi logging chia sẻ.
-      - Một QueueListener xử lý các bản ghi log và chuyển chúng đến FileHandler và StreamHandler.
-      - Cấu hình logger toàn cục ("main_logger") với một SafeQueueHandler.
-    
-    Lớp cũng định nghĩa một cờ is_debug (mặc định True) và một phương thức DEBUG_LOG để ghi log ở mức debug
-    chỉ khi is_debug được bật.
-    """
-    # Đặt tên logger cố định.
     MAIN_LOGGER = "main_logger"
-    DEFAULT_FORMAT = "%(asctime)s, %(processName)s, %(pathname)s - hàm:%(funcName)s(), dòng số:%(lineno)d, %(levelname)s, %(message)s"
 
     def __init__(self):
-        # Tạo Manager và hàng đợi chia sẻ logging.
+        # Create a Manager and shared queue.
         self.manager = Manager()
         self.queue = self.manager.Queue()
-        # Use a Manager.Value for is_debug so that it is shared among processes.
-        self.is_debug = self.manager.Value('b', True)
+        # Instead of a Boolean, use a shared integer for the log level.
+        # Default GUI log level is INFO.
+        self.log_level = self.manager.Value('i', logging.INFO)
 
-        # Tạo một tệp tạm thời để ghi log.
+        # Create a temporary file for logging.
         temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".log")
         self.log_temp_file_path = temp_file.name
         temp_file.close()
 
-        # Định nghĩa formatter mặc định.
-        self.default_formatter = logging.Formatter(self.DEFAULT_FORMAT)
+        # Create a JSON formatter with a fixed date format.
+        self.json_formatter = JsonFormatter(datefmt="%Y-%m-%dT%H:%M:%S%z")
 
-        # Cài đặt FileHandler sử dụng formatter mặc định.
+        # Set up two handlers: one for the terminal and one for the file.
+        terminal_handler = logging.StreamHandler(sys.stdout)
+        terminal_handler.setFormatter(self.json_formatter)
+
         file_handler = logging.FileHandler(self.log_temp_file_path, mode="w", encoding="utf-8")
-        file_handler.setFormatter(self.default_formatter)
+        file_handler.setFormatter(self.json_formatter)
 
-        # Cài đặt StreamHandler để xuất log ra stdout.
-        stream_handler = logging.StreamHandler(sys.stdout)
-        stream_handler.setFormatter(self.default_formatter)
-
-        # Tạo và bắt đầu QueueListener với cả FileHandler và StreamHandler.
-        self.listener = QueueListener(self.queue, file_handler, stream_handler)
+        # Create and start a QueueListener that listens on the shared queue.
+        self.listener = QueueListener(self.queue, terminal_handler, file_handler)
         self.listener.start()
-        print("Tệp log tạm thời:", self.log_temp_file_path)
+        print("Temporary log file:", self.log_temp_file_path)
 
-        # Khởi tạo logger toàn cục "main_logger" sử dụng tên cố định.
+        # Create the global logger.
         self.logger = logging.getLogger(LoggingMultiProcess.MAIN_LOGGER)
-        self.logger.setLevel(logging.DEBUG)
-        # Gắn SafeQueueHandler để gửi các bản ghi log vào hàng đợi chia sẻ.
-        safe_handler = SafeQueueHandler(self.queue, formatter=self.default_formatter)
+        self.logger.setLevel(logging.DEBUG)  # Capture all; handlers and GUI filter decide what to show.
+        # Attach a QueueHandler so that log records are sent to the shared queue.
+        safe_handler = self.get_worker_handler(self.queue)
         self.logger.addHandler(safe_handler)
-        self.logger.addFilter(IsDebugFilter(lambda: self.is_debug))
+        # (Do not filter here; the file and terminal handlers get all messages.)
 
-    def DEBUG_LOG(self, msg):
-        """
-        Ghi một thông báo debug bằng cách sử dụng logger toàn cục nếu is_debug được bật.
-        """
-        self.logger.debug(msg, stacklevel=3)
+        # Note: The GUI text handler will be added later in the GUI module.
 
-    def reinit(self):
+    def select_log_level(self, new_level):
         """
-        Trả về một instance mới của SafeQueueHandler bọc hàng đợi chia sẻ với formatter mặc định.
-        Phương thức này hữu ích cho việc khởi tạo logger trong các tiến trình con.
+        Update the shared GUI log level. new_level should be one of
+        logging.DEBUG, logging.INFO, logging.WARNING, logging.ERROR, logging.CRITICAL.
         """
-        return SafeQueueHandler(self.queue, formatter=self.default_formatter)
+        self.log_level.value = new_level
+        # Update any GUI handler(s) attached to self.logger.
+        for handler in self.logger.handlers:
+            if getattr(handler, "is_gui_handler", False):
+                handler.filters = []
+                handler.addFilter(GuiLogFilter(new_level))
 
     @classmethod
     def get_worker_handler(cls, queue):
         """
-        Trả về một instance mới của SafeQueueHandler với formatter mặc định sử dụng hàng đợi được cung cấp.
-        Hữu ích cho việc cấu hình logging trong các tiến trình con.
+        Returns a new QueueHandler that sends log records to the given queue,
+        with the JSON formatter applied.
         """
-        formatter = logging.Formatter(cls.DEFAULT_FORMAT)
-        return SafeQueueHandler(queue, formatter=formatter)
+        handler = QueueHandler(queue)
+        handler.setFormatter(JsonFormatter(datefmt="%Y-%m-%dT%H:%M:%S%z"))
+        return handler
 
     def shutdown(self):
         """
-        Dừng QueueListener và tắt Manager.
-        Phương thức này được gọi khi ứng dụng kết thúc để giải phóng các tài nguyên.
+        Stops the QueueListener and shuts down the Manager.
         """
         if self.listener:
             try:
                 self.listener.stop()
             except BrokenPipeError:
+                # Ignore BrokenPipeError on shutdown as it is benign in this context.
                 pass
             except Exception as e:
-                print("Lỗi khi dừng QueueListener:", e)
+                print("Error stopping QueueListener:", e)
         if self.manager:
             self.manager.shutdown()
 
-
-# Bộ truy cập toàn cục cho một instance singleton của LoggingMultiProcess.
+# Global singleton accessor.
 _mp_logger = None
 
 def get_mp_logger():
-    """
-    Trả về instance của LoggingMultiProcess.
-    Đảm bảo rằng chỉ tạo một instance duy nhất.
-    """
     global _mp_logger
     if _mp_logger is None:
         _mp_logger = LoggingMultiProcess()
     return _mp_logger
 
-def DEBUG_LOG(msg):
-    """
-    Hàm toàn cục để ghi một thông báo debug sử dụng cấu hình logging chia sẻ.
-    Chỉ ghi khi is_debug được bật.
-    """    
-    get_mp_logger().DEBUG_LOG(msg)
+# (DEBUG_LOG is removed; use get_mp_logger().logger.info(…) etc directly.)
