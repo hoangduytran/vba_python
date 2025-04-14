@@ -17,6 +17,12 @@ LOG_LEVELS = {
     "ERROR": logging.ERROR,
     "CRITICAL": logging.CRITICAL,
 }
+def get_log_level_name(log_value: int):
+    for (name, value) in LOG_LEVELS.items():
+        is_found = value == log_value
+        if is_found:
+            return name    
+    raise RuntimeError(f'Unable to obtain the log level from value:{log_value}')
 
 # Lớp TextHandler để xử lý ghi log vào widget Text của Tkinter.
 class TextHandler(logging.Handler):

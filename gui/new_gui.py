@@ -43,6 +43,12 @@ class MainWindow(tk.Tk):
         # Log level dropdown control.
         self.log_level_var = tk.StringVar(value="DEBUG")
         gv.log_level_var = self.log_level_var  # So that gui_actions.py can see it via gv.log_level_var
+
+        # Convert the string "DEBUG" to an int (logging.DEBUG == 10)
+        level_int = logging._nameToLevel[self.log_level_var.get()]
+        # Call select_log_level so mp_logging updates the shared_log_level
+        self.mp_logging.select_log_level(level_int)
+
         self.log_level_menu = ttk.OptionMenu(
             self.taskbar,
             self.log_level_var,

@@ -2,7 +2,7 @@
 import os
 import logging
 import mpp_logger
-from mpp_logger import get_mp_logger, LoggingMultiProcess
+from mpp_logger import get_mp_logger, LoggingMultiProcess, LOG_LEVELS, get_log_level_name
 import win32com.client as win32
 
 # Global logger variable for workers.
@@ -17,11 +17,13 @@ def worker_logging_setup(shared_queue, shared_log_level):
     worker_logger.handlers.clear()
     new_handler = LoggingMultiProcess.get_worker_handler(shared_queue)
     worker_logger.addHandler(new_handler)
+    
     worker_logger.setLevel(shared_log_level)
     worker_logger.info(f"Worker logging setup complete. GUI filter level = {shared_log_level}")
     
     global logger
     logger = worker_logger
+    logger.info(f'shared_log_level: {get_log_level_name(shared_log_level)}')
 
 def process_excel_file(file_path):
     try:
