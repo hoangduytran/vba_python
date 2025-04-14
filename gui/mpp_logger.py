@@ -170,10 +170,8 @@ class LoggingMultiProcess:
     def get_worker_handler(cls, queue):
         """
         Trả về một instance mới của QueueHandler sử dụng hàng đợi được cung cấp.
-        Ở đây sử dụng PrettyFormatter để định dạng bản ghi cho các output (terminal, GUI).
         """
         handler = QueueHandler(queue)
-        handler.setFormatter(PrettyFormatter(datefmt="%Y-%m-%dT%H:%M:%S%z"))
         return handler
 
     def shutdown(self):
