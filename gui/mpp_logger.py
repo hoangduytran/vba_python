@@ -10,7 +10,7 @@ import json
 # Định nghĩa các mức log với tên tiếng Việt; 
 # "NO_LOGGING" được đặt thành 100 để không hiển thị log nào khi được chọn.
 LOG_LEVELS = {
-    "NO_LOGGING": 100,   # Không hiển thị log nào trong GUI.
+    "NOTSET": logging.NOTSET,   # Không hiển thị log nào trong GUI.
     "DEBUG": logging.DEBUG,
     "INFO": logging.INFO,
     "WARNING": logging.WARNING,
@@ -170,8 +170,8 @@ class LoggingMultiProcess:
         # Tạo Manager và hàng đợi chia sẻ cho log
         self.manager = Manager()
         self.queue = self.manager.Queue()
-        # Mức log chia sẻ dùng cho giao diện (mặc định là INFO)
-        self.log_level = self.manager.Value('i', logging.INFO)
+        # Mức log chia sẻ dùng cho giao diện (mặc định là DEBUG)
+        self.log_level = self.manager.Value('i', logging.DEBUG)
 
         # Tạo file tạm để ghi log ra file (dạng JSON)
         temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".log")

@@ -33,7 +33,12 @@ def update_gui_filter():
     reload_log_text()  # Make sure we reload
 
 def select_log_level(selected):
+    
     level = LOG_LEVELS.get(selected, logging.INFO)
+
+    level_int = logging._nameToLevel[selected]
+    print(f'select_log_level: {selected}, level:{level}')
+
     gv.mp_logging.select_log_level(level)
     update_gui_filter()
     reload_log_text()   # <<--- Add this line
