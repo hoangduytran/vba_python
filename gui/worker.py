@@ -5,23 +5,21 @@ import mpp_logger
 from mpp_logger import get_mp_logger, LoggingMultiProcess
 import win32com.client as win32
 
-# Declare global logger variable.
+# Global logger variable for workers.
 logger = None
 
 def worker_logging_setup(shared_queue, shared_log_level):
     """
     Configures the worker process logger.
-    Clears inherited handlers and installs a QueueHandler that sends log records to the shared queue.
+    Clears inherited handlers and attaches a QueueHandler that sends logs to the shared queue.
     """
     worker_logger = logging.getLogger(LoggingMultiProcess.MAIN_LOGGER)
     worker_logger.handlers.clear()
     new_handler = LoggingMultiProcess.get_worker_handler(shared_queue)
     worker_logger.addHandler(new_handler)
     worker_logger.setLevel(logging.DEBUG)
-    # Optionally add filters if needed; in a worker we typically log everything.
     worker_logger.info(f"Worker logging setup complete. GUI filter level = {shared_log_level}")
     
-    # Set the global logger for this worker.
     global logger
     logger = worker_logger
 

@@ -1,6 +1,5 @@
 # gui.py
 import tkinter as tk
-import tkinter.font as tkFont
 from tkinter import ttk, messagebox, filedialog
 import logging
 import glob, os, threading
@@ -8,17 +7,16 @@ from multiprocessing import Pool
 import worker
 from worker import worker_logging_setup
 from mpp_logger import get_mp_logger
-from logtext import LogText
+from logtext import LogText  # your custom LogText widget
 
-# Declare global logger; it will be assigned later.
+# Declare a global logger variable.
 logger = None
 
-# Common widget style for all widgets.
 COMMON_WIDGET_STYLE = {"font": ("Arial", 18, "bold"), "width": 25, "height": 3}
 
-# Log-level options.
+# Enumeration for log levels.
 LOG_LEVELS = {
-    "NO_LOGGING": 100,   # Higher than CRITICAL, so nothing shows in GUI.
+    "NO_LOGGING": 100,   # Nothing will be shown in GUI.
     "DEBUG": logging.DEBUG,
     "INFO": logging.INFO,
     "WARNING": logging.WARNING,
@@ -26,12 +24,12 @@ LOG_LEVELS = {
     "CRITICAL": logging.CRITICAL,
 }
 
-# A simple TextHandler for the Tkinter Text widget.
+# A simple TextHandler for output to a Tkinter Text widget.
 class TextHandler(logging.Handler):
     def __init__(self, text_widget):
         super().__init__()
         self.text_widget = text_widget
-        self.is_gui_handler = True  # mark this handler as our GUI handler
+        self.is_gui_handler = True
 
     def emit(self, record):
         try:
@@ -50,33 +48,27 @@ class MainWindow(tk.Tk):
     def __init__(self, mp_logging):
         super().__init__()
         self.mp_logging = mp_logging
-
-        # Assign the global logger from mp_logging.
         global logger
-        logger = self.mp_logging.logger
+        logger = self.mp_logging.logger  # set global logger
 
-        # Example log entry.
         logger.info("Ứng dụng Chạy VBA trên Excel (Tkinter) started.")
 
         self.title("Ứng dụng Chạy VBA trên Excel (Tkinter)")
         self.geometry("900x700")
         self.running = True
 
-        # Variables for tracking progress.
         self.total_files = 0
         self.progress_count = 0
         self.progress_queue = None
         self.vba_file = None
         self.excel_directory = None
-
         self.stop_event = threading.Event()
 
-        # ----------------------
-        # Left area: Taskbar
+        # Left taskbar area.
         self.taskbar = tk.Frame(self, bd=2, relief=tk.RIDGE, padx=5, pady=5)
         self.taskbar.pack(side="left", fill="y")
 
-        # Replace debug checkbox with a dropdown for log level selection.
+        # Create a dropdown for log level selection.
         self.log_level_var = tk.StringVar(value="INFO")
         self.log_level_menu = ttk.OptionMenu(self.taskbar, self.log_level_var, "INFO", *LOG_LEVELS.keys(), command=self.select_log_level)
         self.log_level_menu.config(width=20)
@@ -84,8 +76,7 @@ class MainWindow(tk.Tk):
 
         self.create_taskbar_buttons()
 
-        # ----------------------
-        # Right area: Main display (Log text & progress)
+        # Right main display area.
         right_area = tk.Frame(self, bd=2, relief=tk.SUNKEN, padx=10, pady=10)
         right_area.pack(side="left", fill="both", expand=True)
 
@@ -93,17 +84,19 @@ class MainWindow(tk.Tk):
         self.log_container.pack(fill="both", expand=True)
 
         self.progress_bar = ttk.Progressbar(right_area, orient="horizontal", mode="determinate")
-        self.progress_bar.pack(fill="x", pady=(5, 0))
+        self.progress_bar.pack(fill="x", pady=(5,0))
         self.progress_label = tk.Label(right_area, text="0%", font=("Arial", 12))
-        self.progress_label.pack(pady=(0, 5))
+        self.progress_label.pack(pady=(0,5))
 
         self.after_id_progress = self.after(500, self.update_progress)
 
-        # Attach a GUI TextHandler.
+        # Attach a TextHandler to the global QueueListener.
         if self.mp_logging.listener is not None:
-            from mpp_logger import get_mp_logger  # if needed
             gui_handler = TextHandler(self.log_container.log_text)
-            gui_handler.setFormatter(self.mp_logging.json_formatter)
+            from mpp_logger import PrettyFormatter  # or simply create inline
+            gui_formatter = PrettyFormatter(datefmt="%Y-%m-%dT%H:%M:%S%z")
+            gui_handler.setFormatter(gui_formatter)
+            # Apply a filter so that only records at or above the chosen level are displayed.
             current_level = LOG_LEVELS.get(self.log_level_var.get(), logging.INFO)
             gui_handler.addFilter(lambda record: record.levelno >= current_level)
             self.mp_logging.listener.handlers = self.mp_logging.listener.handlers + (gui_handler,)
@@ -130,13 +123,14 @@ class MainWindow(tk.Tk):
         logger.info(f"Log level changed to {selected}")
 
     def save_log(self):
-        path = filedialog.asksaveasfilename(title="Lưu Log vào tập tin", defaultextension=".txt",
-                                              filetypes=[("Tệp văn bản", "*.txt"), ("Tất cả các tệp", "*.*")])
+        # When user chooses to save logs, dump the internal log_store as a JSON file.
+        path = filedialog.asksaveasfilename(title="Lưu Log vào tập tin", defaultextension=".json",
+                                              filetypes=[("JSON File", "*.json"), ("All Files", "*.*")])
         if path:
             try:
-                with open(self.mp_logging.log_temp_file_path, "r", encoding="utf-8") as src, \
-                     open(path, "w", encoding="utf-8") as dst:
-                    dst.write(src.read())
+                import json
+                with open(path, "w", encoding="utf-8") as f:
+                    json.dump(self.mp_logging.log_store, f, indent=4, ensure_ascii=False)
                 messagebox.showinfo("Thông báo", "Log đã được lưu thành công.")
                 logger.info("Log đã được lưu thành công")
             except Exception as e:
@@ -144,7 +138,8 @@ class MainWindow(tk.Tk):
 
     def load_vba_file(self):
         init_dir = self.excel_directory if self.excel_directory else os.getcwd()
-        path = filedialog.askopenfilename(title="Chọn tệp VBA", defaultextension=".bas", initialdir=init_dir,
+        path = filedialog.askopenfilename(title="Chọn tệp VBA", defaultextension=".bas",
+                                          initialdir=init_dir,
                                           filetypes=[("Tệp VBA", "*.bas"), ("Tất cả các tệp", "*.*")])
         if path:
             self.vba_file = path
@@ -157,6 +152,7 @@ class MainWindow(tk.Tk):
         directory = filedialog.askdirectory(title="Chọn thư mục chứa các tệp Excel", initialdir=init_dir)
         if directory:
             self.excel_directory = directory
+            import glob
             excel_files = glob.glob(os.path.join(directory, "*.xlsx"))
             if excel_files:
                 logger.info(f"Đã tải thư mục Excel: {directory}, loaded {len(excel_files)} files.")
@@ -192,6 +188,7 @@ class MainWindow(tk.Tk):
             self.vba_file = os.path.join(self.excel_directory, 'test_macro.bas')
         globals()["global_vba_file_path"] = self.vba_file
 
+        import glob
         excel_files = glob.glob(os.path.join(self.excel_directory, "*.xlsx"))
         if not excel_files:
             messagebox.showwarning("Cảnh báo", "Không tìm thấy tệp Excel nào trong thư mục đã chọn.")
