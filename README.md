@@ -9,7 +9,7 @@
 
 Thi hành VBA macro cho Excel worksheets
 
-## Table of Contents
+## Nội Dung
 
 - [Cài Đặt](#installation)
 - [Sử Dụng](#usage)
@@ -31,47 +31,65 @@ pip install -r requirements.txt
 
 ### Giao Diện Đồ Họa
 
+Ứng dụng có giao diện đồ họa và được chia nhỏ như sau:
+
+**Thanh Công Cụ (Taskbar)** nằm bên trái cửa sổ chính (trong `new_gui.py`), chứa các nút:
+- **Nạp tập tin VBA**
+- **Chọn thư mục Excel**
+- **Chạy VBA trên các tập tin Excel**
+- **Thoát Ứng dụng**
+
+**Khu Vực Log và Thanh Tiến Trình (bên phải)**  
+- **LogText** (định nghĩa trong `logtext.py`):  
+  - Chứa **log_level_menu** (drop-down) và **exact_check** (checkbox) ở **phần toolbar trên**. Chúng cho phép người dùng thay đổi mức log cần hiển thị (DEBUG, INFO, WARNING, ERROR, CRITICAL, v.v.) và chọn “duy nhất cấp độ” hay “từ cấp độ này trở lên.” Xem bảng dưới đây: 
+  
+ | Cấp Độ | Giá trị số biểu thị | Tác Dụng                                                                                  |
+|-----------|---------------|------------------------------------------------------------------------------------------|
+| NOTSET (Không Đặt)   | 0             | Không có mức cụ thể được thiết lập. Thường dùng nội bộ để bỏ qua các logs, thanh lọc chúng đi.          |
+| DEBUG (Điều Tra Lỗi)    | 10            | Chi tiết các thông tin gỡ lỗi; mức thấp nhất, thường dùng cho phát triển và chẩn đoán.     |
+| INFO  (Thông Tin)    | 20            | Thông tin chung về hoạt động của ứng dụng; dùng cho việc ghi nhận các sự kiện thông thường. |
+| WARNING (Cảnh Báo)  | 30            | Cảnh báo cho biết có thể đã xảy ra vấn đề nhưng ứng dụng vẫn tiếp tục chạy.                |
+| ERROR (Lỗi)    | 40            | Ghi nhận lỗi nghiêm trọng khiến một chức năng không thể thực hiện đúng được.              |
+| CRITICAL  (Nghiêm Trọng) | 50            | Các lỗi cực kỳ nghiêm trọng, chỉ ra rằng chương trình có thể không còn khả năng chạy.       |
+
+   - Dựa vào nội dung trên, khi phát triển thêm chức năng thì lưu ý dùng các lệnh `logger.debug, logger.info, logger.warning, logger.error, logger.critical` cho hợp lý với mức độ nghiêm trọng mà  dòng nhật ký biểu tả.
+ 
+  - Vùng log (Text) thể hiện nội dung log theo **bộ lọc động** (DynamicLevelFilter).  
+  - Thanh công cụ phụ (toolbar) trong LogText (có các nút emoji) giúp thực hiện lưu log, xóa log, sao chép, dán, chọn font, tăng/giảm cỡ chữ, bật/tắt xuống dòng, v.v.
+  - Khi lưu log thì có hai lựa chọn, nếu lưu bằng '.log' thì chỉ những gì hiện có trong hộp văn bản log_text sẽ được lưu ra. Tức là những gì mình thanh lọc bằng các lựa chọn trong mức độ và cờ 'duy nhất cấp độ'. Cái này cho phép mình thu gọn các log cần thiết để xem kỹ mà không bị những cái không quan tâm làm rối trí, hòng nhằm điều tra và xử lý tiếp.  
+  - Nếu lưu bằng '.json' thì TOÀN BỘ các dòng logs sẽ được lưu ra, nghĩa là nội dung của bản log temp, sẽ được viết ra, dưới định dạng JSON. Cái này hòng cho phép mình viết mã Python, sử dụng JSON phân tích để xem cái nào cần, cái nào không v.v..
+
+- **Thanh Tiến Trình (progress bar)**:  
+  Hiển thị tiến độ xử lý tệp Excel (phần trăm) khi chạy VBA trên nhiều file song song.
+
+---
+
+### Phân Tách `gui_actions.py`
+Mọi logic như **“save_log,” “load_vba_file,” “select_log_level,” “run_vba_on_all,”**… được cài đặt trong **`gui_actions.py`**.  
+Các file **`logtext.py`** và **`new_gui.py`** chỉ gọi `action_list["tên_action"]` để thực thi, đảm bảo tách biệt giữa giao diện và logic.
+
+---
+
+#### Lưu ý:
+- Ban đầu, để phục vụ thử nghiệm, có thể có một số dòng mã tạm (debug) trong `main.py` hoặc `new_gui.py` (ví dụ, đặt đường dẫn macro mặc định). Khi vào chạy thực tế, cần **comment** những dòng đó, cho phép người dùng chọn thực sự qua giao diện.
+
+| **Thành phần** | **Mô tả**                                                                                                       |
+|----------------|-------------------------------------------------------------------------------------------------------------------|
+| **Taskbar (Thanh Công Cụ)** | Bên trái cửa sổ, chứa nút nạp VBA, chọn thư mục, lưu log,...                                                                               |
+| **LogText (trong `logtext.py`)** | Chứa vùng hiển thị log, thanh công cụ (toolbar) với nút emoji, **log_level_menu** và **exact_check**                           |
+| **Progress Bar (Thanh Tiến Trình)** | Hiển thị phần trăm hoàn thành của quy trình (song song)                                                                          |
+ 
+- Nếu bạn đang giả lập `win32com.client` trong quá trình dev/test, cần gỡ module giả lập trước khi triển khai thật để dùng bản chính thức.  
+- Xem trong `main.py` hoặc `new_gui.py`, có thể có các dòng “DEV” gán đường dẫn tạm. Hãy **comment** chúng khi chạy sản xuất để lấy thông tin thực từ giao diện.
+
+
 Nằm trong thư mục con `gui` cho nên phải `cd gui` rồi chạy mã
 
 `
 python3 main.py
 `
 
-Ứng dụng bao gồm một giao diện đồ họa thân thiện và hiện đại, được thiết kế để hỗ trợ người dùng thao tác một cách dễ dàng. Các thành phần chính bao gồm:
-
-1. **Thanh Công Cụ (Taskbar):**
-   - **Các nút điều khiển:**
-     - **Bật/Tắt hiển thị lỗi:** Chức năng này cho phép bật/tắt các dòng `DEBUG_LOG` gắn trong mã hiển thị trên 3 phương tiện:
-        1. Văn bản tạm thời của hệ thống (temp)
-        2. Cổng thiết bị cuối, nơi thi hành `python3 main.py`
-        3. Cửa sổ log ở bên phải, nơi có thể sử dụng để quan sát, lưu văn bản log vào một tập tin và đọc, quan sát lỗi, kết quả chạy. Cái này cho phép bạn sử dụng mã `DEBUG_LOG` để liệt kê tiến trình cùng các dòng điều tra lỗi trong khi phát triển phần mềm, viết thêm những chức năng mới cho bản thân. 
-     - **Lưu Log vào tập tin:** Lưu lại nội dung log hiện tại vào một tập tin để lưu trữ hoặc chia sẻ.
-     - **Tải tệp VBA:** Cho phép người dùng chọn tệp chứa VBA macro để nhập vào Excel.
-     - **Tải thư mục Excel:** Lựa chọn thư mục chứa các tệp Excel cần xử lý.
-     - **Chạy VBA trên tất cả các tệp Excel:** Khởi chạy chế độ xử lý VBA cho tất cả các tập tin Excel trong thư mục đã chọn, sử dụng đa tiến trình nhằm tối ưu hoá tài nguyên CPU.
-     - **Thoát Ứng Dụng:** Đóng ứng dụng và giải phóng các tài nguyên liên quan.
-
-2. **Khu Vực Log và Tiến Trình:**
-   - **Khung Log (LogText):**
-     Một khung chứa vùng hiển thị log kết hợp với thanh công cụ phụ. Vùng log cho phép:
-     - Hiển thị thông báo log chi tiết và các thông báo hệ thống.
-     - Thực hiện các thao tác lưu, sao chép, dán văn bản.
-     - Điều chỉnh phông chữ, kích thước phông chữ, màu nền và màu điều khiển.
-     - Các nút trên thanh công cụ của khung log được thiết kế với kích thước lớn (sử dụng emoji và tooltip tiếng Việt) để giúp người dùng hiểu rõ chức năng của từng nút.
-
-   - **Thanh Tiến Trình:**
-     Hiển thị phần trăm hoàn thành của quy trình xử lý các tệp Excel. Thanh tiến trình được cập nhật tự động khi tiến trình con gửi thông báo qua hàng đợi tiến trình.
-
-3. **Các Cài Đặt Giao Diện:**
-   Các thuộc tính như phông chữ, màu sắc và kích thước của các control đã được cài đặt mặc định khi ứng dụng khởi chạy theo sở thích của người dùng.
-
-| Thành phần              | Mô tả                                                                                  |
-|-------------------------|----------------------------------------------------------------------------------------|
-| Taskbar (Thanh Công Cụ) | Nơi chứa các nút chức năng chính như tải tệp VBA, chạy VBA, lưu log,...                |
-| LogText                 | Khung chứa vùng hiển thị log kết hợp với thanh công cụ phụ hỗ trợ các thao tác lưu, copy, paste, thay đổi phông, tăng, giảm cỡ phông chữ, bật tắt xuống dòng để có thể quan sát toàn bộ dòng trong cửa sổ.|
-| Progress Bar            | Thanh tiến trình hiển thị phần trăm hoàn thành của quy trình xử lý các tệp Excel          |
-
-> **Lưu ý:**  
+> **Cần Làm:**  
 > Trước khi chạy ứng dụng phiên bản sản xuất, người dùng cần xóa thư mục (module) `win32com/client.py` dùng để mô phỏng (testing mock) win32com đi, trước khi thi hành. Điều này đảm bảo rằng ứng dụng sẽ sử dụng phiên bản chính thức của win32com.client để tương tác với Excel.
 
 > Đồng thời xem trong bản gui.py, thấy các dòng có đề như sau:
