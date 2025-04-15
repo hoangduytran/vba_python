@@ -22,8 +22,8 @@ def update_gui_filter():
     If is_exact is True, only log records with exactly the chosen level are shown;
     if False, all records with levels greater than or equal to the chosen level are displayed.
     """
-    current_level = LOG_LEVELS.get(gv.root.log_level_var.get(), logging.INFO)
-    is_exact = gv.root.is_exact_var.get()
+    current_level = LOG_LEVELS.get(gv.log_level_var.get(), logging.INFO)
+    is_exact = gv.is_exact_var.get()
     print(f'is_exact:{is_exact}')
 
     # Clear existing DynamicLevelFilter filters.
@@ -260,8 +260,8 @@ def reload_log_text():
     widget.delete("1.0", tk.END)
     widget.configure(state="disabled")
     
-    current_level = LOG_LEVELS.get(gv.root.log_level_var.get(), logging.INFO)
-    is_exact = gv.root.is_exact_var.get()
+    current_level = LOG_LEVELS.get(gv.log_level_var.get(), logging.INFO)
+    is_exact = gv.is_exact_var.get()
     
     def passes_filter(rec):
         record_level = logging._nameToLevel.get(rec["level"], 0)
@@ -309,8 +309,8 @@ def reload_log_text():
     text_widget.configure(state="disabled")
 
     # Get the newly selected filter criteria
-    current_level = LOG_LEVELS.get(gv.root.log_level_var.get(), logging.INFO)
-    is_exact = gv.root.is_exact_var.get()
+    current_level = LOG_LEVELS.get(gv.log_level_var.get(), logging.INFO)
+    is_exact = gv.is_exact_var.get()
 
     def passes_filter(rec):
         record_level = logging._nameToLevel.get(rec["level"], 0)

@@ -1,4 +1,8 @@
 # gv.py
+COMMON_WIDGET_STYLE = {"font": ("Arial", 18, "bold"), "width": 25, "height": 3}
+FONT_BASIC = ("Arial", 15, "normal")
+font_options = ["Arial", "Courier New", "Times New Roman", "Verdana", "Tahoma"]
+
 class Gvar:
     # Main window and logging
     root = None               # Main Tk instance (set in gui.py)

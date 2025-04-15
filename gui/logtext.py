@@ -3,8 +3,12 @@ import tkinter.font as tkFont
 from tkinter import ttk, filedialog, messagebox
 import tkinter.font as tkFont
 from enum import Enum
+from gv import Gvar as gv, COMMON_WIDGET_STYLE, FONT_BASIC, font_options
+from mpp_logger import LOG_LEVELS
+from gui_actions import action_list
 
 logger = None
+option_style = None
 
 # Lớp ToolTip: hiển thị tooltip khi con trỏ chuột di chuyển vào widget
 import tkinter as tk
@@ -142,15 +146,59 @@ class LogText(tk.Frame):
         
         # Gọi hàm tạo các nút trên thanh công cụ
         self.create_toolbar()
-        
+
     def create_toolbar(self):
         """
         Tạo các nút trên thanh công cụ sử dụng emoji được định nghĩa trong lớp Emoji.
         Các nút có kích thước lớn (width, height và font được tăng) và mỗi nút có tooltip với tiêu đề tiếng Việt.
         """
+        # Thiết lập style TTK cho nút (Button) và checkbutton
+        global option_style
+
+        self.style = ttk.Style(self)
+        # Style cho nút lớn, font Arial 18 đậm
+        self.style.configure(
+            "App.TMenubutton",  # Tên bạn chọn, thường kèm hậu tố .TMenubutton
+            font=("Arial", 18, "normal"),
+            padding=8
+        )        
+        
+
+        # -----------------------------------------
+        # ADD the log_level_menu at the end of toolbar
+        # Tạo Biến chuỗi cho log_level_var, tham chiếu gv.log_level_var
+        # (assuming we still keep it in gv)
+        gv.log_level_var = tk.StringVar(value="DEBUG")
+        # Drop-down
+        self.log_level_menu = ttk.OptionMenu(
+            self.toolbar,
+            gv.log_level_var,
+            gv.log_level_var.get(),  # initial
+            *LOG_LEVELS.keys(),
+            command=action_list["select_log_level"]
+        )
+        # Style or config if you want
+        self.log_level_menu.config(style="App.TMenubutton", width=15)
+        self.log_level_menu["menu"].config(font=FONT_BASIC)
+        self.log_level_menu.pack(side="left", padx=5)
+        
+        ToolTip(self.log_level_menu, text="Chọn mức log (DEBUG -> CRITICAL)")
+
+        # exact_check
+        gv.is_exact_var = tk.BooleanVar(value=True)
+        self.exact_check = tk.Checkbutton(
+            self.toolbar,
+            text="Duy Cấp Độ",
+            variable=gv.is_exact_var,
+            font=FONT_BASIC,
+            command=action_list["update_gui_filter"],
+        )
+        self.exact_check.pack(side="left", padx=5)
+        ToolTip(self.exact_check, text="Chỉ hiển thị đúng cấp độ này hay từ nó trở lên")
+
         # Cấu hình cho các nút: bao gồm emoji, command và tooltip (tiêu đề tiếng Việt)
         buttons_config = [
-            {"emoji": Emoji.SAVE.value, "command": self.save_log, "tooltip": "Lưu log vào tập tin"},
+            {"emoji": Emoji.SAVE.value, "command": self.save_log, "tooltip": "Lưu toàn bộ log vào tập tin"},
             {"emoji": Emoji.CLEAR.value, "command": self.clear_log, "tooltip": "Xóa log"},  # Nút xóa log mới
             {"emoji": Emoji.COPY.value, "command": self.copy_text, "tooltip": "Sao chép văn bản đã chọn"},
             {"emoji": Emoji.PASTE.value, "command": self.paste_text, "tooltip": "Dán văn bản từ clipboard"},
@@ -201,17 +249,20 @@ class LogText(tk.Frame):
             filetypes=[("Tệp văn bản (*.txt)", "*.txt"), ("Tệp JSON (*.json)", "*.json")]
         )
         if path:
+            expl = ""
             try:
                 if path.lower().endswith(".json"):
                     # For JSON, simply copy the temporary log file,
                     # which is written in JSON-line format.
                     shutil.copyfile(self.mp_logging.log_temp_file_path, path)
+                    expl = "toàn bộ nội dung trong định dạng JSON"
                 else:
                     # For .txt, write out the human-readable log text (from the LogText widget).
                     with open(path, "w", encoding="utf-8") as f:
                         f.write(self.log_text.get("1.0", tk.END))
-                messagebox.showinfo("Thông báo", "Log đã được lưu thành công.")
-                logger.info("Log đã được lưu thành công")
+                    expl = "duy nội dung trong hộp văn bản ở định dạng văn bản thường"
+                messagebox.showinfo("Thông báo", f"Log đã được lưu thành công với {expl}")
+                logger.info(f"Log đã được lưu thành công với {expl}")
             except Exception as e:
                 messagebox.showerror("Lỗi", f"Lỗi khi lưu log: {e}")
     
@@ -245,9 +296,10 @@ class LogText(tk.Frame):
         top.title("Chọn phông chữ")
         tk.Label(top, text="Phông chữ:").pack(side="left", padx=5, pady=5)
         
-        font_options = ["Arial", "Courier New", "Times New Roman", "Verdana", "Tahoma"]
+        
         var = tk.StringVar(value=self.font.actual("family"))
         option_menu = tk.OptionMenu(top, var, *font_options)
+        option_menu["menu"].config(font=FONT_BASIC)
         option_menu.pack(side="left", padx=5, pady=5)
         
         def update_font():
