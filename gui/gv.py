@@ -3,6 +3,40 @@ COMMON_WIDGET_STYLE = {"font": ("Arial", 18, "bold"), "width": 25, "height": 3}
 FONT_BASIC = ("Arial", 15, "normal")
 font_options = ["Arial", "Courier New", "Times New Roman", "Verdana", "Tahoma"]
 
+def create_log_record(record, with_diacritics=False):
+    """
+    Creates a log record dictionary from a logging record.
+
+    Args:
+        record: A logging record object.
+        with_diacritics (bool): If True, return keys with Vietnamese diacritics;
+                                if False, return keys without diacritics.
+
+    Returns:
+        dict: A dictionary with the formatted log information.
+    """
+    if with_diacritics:
+        return {
+            "thời điểm": record.asctime,
+            "tên tiến trình": record.processName,
+            "tên tệp tin": record.pathname,
+            "hàm": f"{record.funcName}()",
+            "số dòng": record.lineno,
+            "cấp độ": record.levelname,
+            "thông điệp": record.message
+        }
+    else:
+        return {
+            "thoi diem": record.asctime,
+            "ten tien trinh": record.processName,
+            "ten tep tin": record.pathname,
+            "ham": f"{record.funcName}()",
+            "so dong": record.lineno,
+            "cap do": record.levelname,
+            "thong diep": record.message
+        }
+
+
 class Gvar:
     # Main window and logging
     root = None               # Main Tk instance (set in gui.py)

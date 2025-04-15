@@ -4,6 +4,7 @@ import sys
 import tempfile
 from multiprocessing import Manager
 from logging.handlers import QueueHandler, QueueListener
+from gv import create_log_record
 import json
 
 
@@ -86,22 +87,12 @@ class ExactLevelFilter(logging.Filter):
 # -------------------------------------------------------------------------------
 class JsonFormatter(logging.Formatter):
     def format(self, record):
-        # Sử dụng record.msg thay vì getMessage() để tránh trùng lặp thông tin định dạng
         record.message = record.msg  
-        # Tính toán luôn giá trị record.asctime theo định dạng datefmt đã cấu hình
         record.asctime = self.formatTime(record, self.datefmt)
-        # Tạo dictionary các trường log với các khóa ASCII
-        log_record = {
-            "time stamp": record.asctime,
-            "process name": record.processName,
-            "filename": record.pathname,
-            "function": f"ham:{record.funcName}()",
-            "line number": f"dong so:{record.lineno}",
-            "level": record.levelname,
-            "message": record.message
-        }
-        # Trả về chuỗi JSON của dictionary trên
-        return json.dumps(log_record)
+        # Create the log dictionary with non-diacritic keys.
+        log_record = create_log_record(record, with_diacritics=False)
+        # Use json.dumps to convert the dictionary to a JSON-formatted string.
+        return json.dumps(log_record, indent=4, ensure_ascii=False)
 
 # -------------------------------------------------------------------------------
 # PrettyFormatter: Định dạng bản ghi log theo kiểu “dễ đọc” (human-friendly)
@@ -110,21 +101,14 @@ class JsonFormatter(logging.Formatter):
 # -------------------------------------------------------------------------------
 class PrettyFormatter(logging.Formatter):
     def format(self, record):
-        # Sử dụng record.msg để lấy thông điệp gốc (không bị định dạng lại)
         record.message = record.msg  
-        # Tính toán thời gian (asctime) theo định dạng đã cấu hình
         record.asctime = self.formatTime(record, self.datefmt)
-        # Tạo chuỗi nhiều dòng với các trường thông tin và nhãn tiếng Việt có dấu
-        s = (
-            f"mã thời gian: {record.asctime}\n"
-            f"tên tiến trình: {record.processName}\n"
-            f"tên tệp tin: {record.pathname}\n"
-            f"hàm:{record.funcName}()\n"
-            f"dòng số:{record.lineno}\n"
-            f"cấp độ: {record.levelname}\n"
-            f"thông điệp: {record.message}\n"
-        )
-        return s
+        # Create the log dictionary with diacritics.
+        log_record = create_log_record(record, with_diacritics=True)
+        # Convert dictionary items to a list and then to a string with each item on a new line.
+        items_list = list(log_record.items())
+        formatted_output = "\n".join(f"{k}: {v}" for k, v in items_list)
+        return formatted_output + '\n\n'
 
 # -------------------------------------------------------------------------------
 # MemoryLogHandler: Handler tùy chỉnh lưu trữ mỗi bản ghi log (theo định dạng JSON)
@@ -137,13 +121,19 @@ class MemoryLogHandler(logging.Handler):
 
     def emit(self, record):
         try:
-            # Sử dụng JsonFormatter để định dạng bản ghi log thành chuỗi JSON
-            formatter = JsonFormatter(datefmt="%Y-%m-%dT%H:%M:%S%z")
-            json_record = formatter.format(record)
-            # Chuyển chuỗi JSON thành đối tượng dict và thêm vào danh sách log_store
-            self.log_store.append(json.loads(json_record))
+            self.log_store.append(record)
         except Exception:
             self.handleError(record)
+
+    # def emit(self, record):
+    #     try:
+    #         # Sử dụng JsonFormatter để định dạng bản ghi log thành chuỗi JSON
+    #         formatter = JsonFormatter(datefmt="%Y-%m-%dT%H:%M:%S%z")
+    #         json_record = formatter.format(record)
+    #         # Chuyển chuỗi JSON thành đối tượng dict và thêm vào danh sách log_store
+    #         self.log_store.append(json.loads(json_record))
+    #     except Exception:
+    #         self.handleError(record)
 
 # -------------------------------------------------------------------------------
 # LoggingMultiProcess: Lớp bao bọc cấu hình logging đa tiến trình

@@ -19,7 +19,7 @@ def worker_logging_setup(shared_queue, shared_log_level):
     worker_logger.addHandler(new_handler)
     
     worker_logger.setLevel(shared_log_level)
-    worker_logger.info(f"Worker logging setup complete. GUI filter level = {shared_log_level}")
+    worker_logger.info(f"Worker logging setup complete. GUI filter level = {get_log_level_name(shared_log_level)}")
     
     global logger
     logger = worker_logger

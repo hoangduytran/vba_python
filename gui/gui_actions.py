@@ -251,34 +251,6 @@ def toggle_wrap():
     new_wrap = "none" if current_wrap == "word" else "word"
     gv.root.log_container.log_text.configure(wrap=new_wrap)
 
-def reload_log_text():
-    """
-    Clear the log display and reload all log entries from mp_logging.log_store that satisfy the filter.
-    """
-    widget = gv.root.log_container.log_text
-    widget.configure(state="normal")
-    widget.delete("1.0", tk.END)
-    widget.configure(state="disabled")
-    
-    current_level = LOG_LEVELS.get(gv.log_level_var.get(), logging.INFO)
-    is_exact = gv.is_exact_var.get()
-    
-    def passes_filter(rec):
-        record_level = logging._nameToLevel.get(rec["level"], 0)
-        return record_level == current_level if is_exact else record_level >= current_level
-    
-    for rec in gv.root.mp_logging.log_store:
-        if passes_filter(rec):
-            s = (
-                f"ma thoi gian: {rec['time stamp']}\n"
-                f"ten tien trinh: {rec['process name']}\n"
-                f"ten tep tin: {rec['filename']}\n"
-                f"ham: {rec['function']}\n"
-                f"dong so: {rec['line number']}\n"
-                f"cap do: {rec['level']}\n"
-                f"thong diep: {rec['message']}\n"
-            )
-            gv.root.log_container.insert_log(s)
 
 def exit_app():
     """
@@ -299,37 +271,39 @@ def exit_app():
 
 def reload_log_text():
     """
-    Clear the log text widget and re-insert only those records
-    that match the currently selected log level and exact-flag.
+    Clear the log display and reload all log entries from mp_logging.log_store
+    that satisfy the filter, then convert each record to text using the PrettyFormatter.
     """
-    # Clear the text area
-    text_widget = gv.root.log_container.log_text
-    text_widget.configure(state="normal")
-    text_widget.delete("1.0", tk.END)
-    text_widget.configure(state="disabled")
-
-    # Get the newly selected filter criteria
+    # Get the text widget (assumed to be a Tkinter Text widget)
+    widget = gv.root.log_container.log_text
+    widget.configure(state="normal")
+    widget.delete("1.0", tk.END)
+    widget.configure(state="disabled")
+    
+    # Retrieve the current log level and exact matching flag from the GUI's shared variables.
     current_level = LOG_LEVELS.get(gv.log_level_var.get(), logging.INFO)
     is_exact = gv.is_exact_var.get()
-
+    
+    # Define a filter function for the raw log record.
     def passes_filter(rec):
-        record_level = logging._nameToLevel.get(rec["level"], 0)
-        return (record_level == current_level) if is_exact else (record_level >= current_level)
+        # Compare using the raw record's 'levelno' attribute.
+        return rec.levelno == current_level if is_exact else rec.levelno >= current_level
 
-    # Re-insert only the records that pass the filter
-    for rec in gv.mp_logging.log_store:
-        if passes_filter(rec):
-            # Format the record in a user-friendly way
-            s = (
-                f"mã thời gian: {rec['time stamp']}\n"
-                f"tên tiến trình: {rec['process name']}\n"
-                f"tên tệp tin: {rec['filename']}\n"
-                f"hàm:{rec['function']}\n"
-                f"dòng số:{rec['line number']}\n"
-                f"cấp độ: {rec['level']}\n"
-                f"thông điệp: {rec['message']}\n"
-            )
-            gv.root.log_container.insert_log(s)
+    # Filter the raw log records stored in the MemoryLogHandler.
+    filtered_records = [rec for rec in gv.root.mp_logging.log_store if passes_filter(rec)]
+    
+    # Format each record using the PrettyFormatter.
+    # The PrettyFormatter uses create_log_record with diacritics=True.
+    formatted_logs = [
+        gv.root.mp_logging.pretty_formatter.format(rec)
+        for rec in filtered_records
+    ]
+    
+    # Join the formatted log entries with newline characters.
+    full_text = "\n".join(formatted_logs)
+    
+    # Insert the combined log text into the log container.
+    gv.root.log_container.insert_log(full_text)
 
 
 
