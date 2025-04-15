@@ -5,7 +5,7 @@ from tkinter import ttk
 from gv import Gvar as gv
 from gui_actions import action_list  # Import the callbacks from gui_actions.py
 from mpp_logger import get_mp_logger, LOG_LEVELS, TextHandler, PrettyFormatter, DynamicLevelFilter  # and other logging utilities
-from logtext import LogText  # Your custom LogText widget class
+from logtext import LogText, ToolTip  # Your custom LogText widget class
 import threading
 
 COMMON_WIDGET_STYLE = {"font": ("Arial", 18, "bold"), "width": 25, "height": 3}
@@ -35,6 +35,15 @@ class MainWindow(tk.Tk):
         self.vba_thread = None
         self.after_id_progress = None
 
+        # Thiết lập style TTK cho nút (Button) và checkbutton
+        self.style = ttk.Style(self)
+        # Style cho nút lớn, font Arial 18 đậm
+        self.style.configure(
+            "App.TMenubutton",  # Tên bạn chọn, thường kèm hậu tố .TMenubutton
+            font=("Arial", 18, "normal"),
+            padding=8
+        )        
+
         # ----------------------
         # LEFT TASKBAR (Controls)
         self.taskbar = tk.Frame(self, bd=2, relief=tk.RIDGE, padx=5, pady=5)
@@ -56,7 +65,11 @@ class MainWindow(tk.Tk):
             *LOG_LEVELS.keys(),
             command=action_list["select_log_level"]
         )
-        self.log_level_menu.config(width=20)
+        # Thêm tooltip
+        ToolTip(self.log_level_menu, text="Cấp độ thông báo điều tra lỗi, DEBUG là thấp nhất, CRITICAL là cao nhất. Cái này chỉ ảnh hưởng đến những gì mình thu được trong hộp văn bản bên phải mà thôi.")
+
+        self.log_level_menu.config(style="App.TMenubutton", width=25)
+        self.log_level_menu["menu"].config(font=("Arial", 18, "normal"))
         self.log_level_menu.pack(pady=5, anchor="w")
 
         # Checkbox for exact filter control.
@@ -64,19 +77,22 @@ class MainWindow(tk.Tk):
         gv.is_exact_var = self.is_exact_var
         self.exact_check = tk.Checkbutton(
             self.taskbar,
-            text="Chính Xác",
+            text="Duy Cấp Độ Chọn",
             variable=self.is_exact_var,
+            **COMMON_WIDGET_STYLE,
             command=action_list["update_gui_filter"]
         )
-        self.exact_check.pack(pady=5, anchor="w")
+        # Thêm tooltip
+        ToolTip(self.exact_check, text="Nếu chọn thì chỉ cấp độ chọn là hiển thị, nếu không thì từ cấp độ chọn lên cao nhất.")
+        self.exact_check.pack(pady=0, anchor="ne")
 
         # List of buttons and their associated actions (registered in action_list).
         btns_config = [
-            {"text": "Lưu Log vào tập tin", "action": "save_log"},
-            {"text": "Tải tệp VBA", "action": "load_vba_file"},
-            {"text": "Tải thư mục Excel", "action": "load_excel_directory"},
-            {"text": "Chạy VBA trên tất cả các tệp Excel", "action": "run_macro_thread"},
-            {"text": "Thoát Ứng dụng", "action": "exit_app"}
+            {"text": "Lưu Log vào một tập tin", "action": "save_log"},
+            {"text": "Nạp tập tin VBA", "action": "load_vba_file"},
+            {"text": "Chọn thư mục Excel", "action": "load_excel_directory"},
+            {"text": "Chạy VBA trên các tập tin Excel", "action": "run_macro_thread"},
+            {"text": "Thoát ứng dụng", "action": "exit_app"}
         ]
 
         for config in btns_config:
@@ -136,8 +152,8 @@ class MainWindow(tk.Tk):
         # Set the WM_DELETE_WINDOW protocol to trigger the exit callback.
         self.protocol("WM_DELETE_WINDOW", action_list["exit_app"])
 
-if __name__ == "__main__":
-    from mpp_logger import get_mp_logger
-    mp_logging = get_mp_logger()
-    app = MainWindow(mp_logging)
-    app.mainloop()
+# if __name__ == "__main__":
+#     from mpp_logger import get_mp_logger
+#     mp_logging = get_mp_logger()
+#     app = MainWindow(mp_logging)
+#     app.mainloop()

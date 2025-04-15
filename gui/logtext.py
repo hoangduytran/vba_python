@@ -1,4 +1,5 @@
 import tkinter as tk
+import tkinter.font as tkFont
 from tkinter import ttk, filedialog, messagebox
 import tkinter.font as tkFont
 from enum import Enum
@@ -6,17 +7,41 @@ from enum import Enum
 logger = None
 
 # Lớp ToolTip: hiển thị tooltip khi con trỏ chuột di chuyển vào widget
+import tkinter as tk
+from tkinter import font as tkFont
+
 class ToolTip:
-    def __init__(self, widget, text='Thông tin'):
+    def __init__(self, widget, text='Thông tin', max_width=400):
+        """
+        widget    : widget mà tooltip gắn vào
+        text      : nội dung văn bản hiển thị
+        max_width : giới hạn chiều rộng tính theo pixel (nếu text quá dài, sẽ wrap)
+        """
         self.widget = widget
         self.text = text
         self.tipwindow = None
         self.id = None
         self.x = self.y = 0
+        self.max_width = max_width
+
+        # Gán sự kiện di chuyển vào/ra widget
         widget.bind("<Enter>", self.enter)
         widget.bind("<Leave>", self.leave)
+
+        # Khởi tạo font cho tooltip
+        self.label_font = tkFont.Font(family="Arial", size=15)
         
+        # Đo chiều rộng văn bản tính theo pixel
+        text_width_px = self.label_font.measure(text)
+        
+        # Nếu văn bản + chút lề > max_width, ta sẽ dùng wrap
+        if text_width_px > self.max_width:
+            self.wraplength = self.max_width
+        else:
+            self.wraplength = 0  # =0 nghĩa là không wrap
+
     def enter(self, event=None):
+        # Lên lịch hiển thị tooltip sau 500ms
         self.schedule()
         
     def leave(self, event=None):
@@ -25,37 +50,53 @@ class ToolTip:
         
     def schedule(self):
         self.unschedule()
-        self.id = self.widget.after(500, self.showtip)
+        self.id = self.widget.after(1000, self.showtip)
         
     def unschedule(self):
-        id_ = self.id
+        if self.id:
+            self.widget.after_cancel(self.id)
         self.id = None
-        if id_:
-            self.widget.after_cancel(id_)
-            
+
     def showtip(self, event=None):
+        """
+        Tạo một cửa sổ toplevel, hiển thị text (có wrap nếu cần).
+        Đặt vị trí ngay dưới widget.
+        """
+        # Nếu đã có tipwindow hoặc text rỗng, bỏ qua
         if self.tipwindow or not self.text:
             return
-        # Get the absolute x coordinate of the widget's left edge.
-        x = self.widget.winfo_rootx()
-        # Get the y coordinate by adding the widget's height to its top coordinate.
-        y = self.widget.winfo_rooty() + self.widget.winfo_height()
-        # Optionally, add some extra vertical offset if needed.
-        y += 5  # thêm khoảng cách 5 pixel bên dưới nút
 
+        # Tính toạ độ cho tooltip: ngay cạnh dưới widget
+        x = self.widget.winfo_rootx()
+        y = self.widget.winfo_rooty() + self.widget.winfo_height() + 5
+
+        # Tạo cửa sổ Toplevel cho tooltip
         self.tipwindow = tw = tk.Toplevel(self.widget)
-        tw.wm_overrideredirect(True)
+        tw.wm_overrideredirect(True)  # Xoá viền, thanh title
         tw.wm_geometry("+%d+%d" % (x, y))
-        label = tk.Label(tw, text=self.text, justify=tk.LEFT,
-                        background="#ffffe0", relief=tk.SOLID, borderwidth=1,
-                        font=("tahoma", "15", "normal"))
-        label.pack(ipadx=1)
-        
+
+        # Tạo nhãn để hiển thị text trong tipwindow
+        label = tk.Label(
+            tw,
+            text=self.text,
+            justify=tk.LEFT,
+            background="#b7c8be",
+            relief=tk.SOLID,
+            borderwidth=0,
+            font=self.label_font
+        )
+
+        # Nếu cần wrap (wraplength > 0), cấu hình wraplength
+        if self.wraplength > 0:
+            label.config(wraplength=self.wraplength)
+
+        label.pack(ipadx=5, ipady=5)  # Thêm chút padding trong Label
+
     def hidetip(self):
-        tw = self.tipwindow
+        if self.tipwindow:
+            self.tipwindow.destroy()
         self.tipwindow = None
-        if tw:
-            tw.destroy()
+
 
 # Lớp Emoji: định nghĩa các emoji cho các nút trên thanh công cụ
 class Emoji(Enum):
