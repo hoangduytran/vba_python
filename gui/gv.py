@@ -20,8 +20,8 @@ def create_log_record(record, with_diacritics=False):
             "thời điểm": record.asctime,
             "tên tiến trình": record.processName,
             "tên tệp tin": record.pathname,
-            "hàm": f"{record.funcName}()",
-            "số dòng": record.lineno,
+            "tên hàm": f"{record.funcName}()",
+            "dòng số": record.lineno,
             "cấp độ": record.levelname,
             "thông điệp": record.message
         }
@@ -30,8 +30,8 @@ def create_log_record(record, with_diacritics=False):
             "thoi diem": record.asctime,
             "ten tien trinh": record.processName,
             "ten tep tin": record.pathname,
-            "ham": f"{record.funcName}()",
-            "so dong": record.lineno,
+            "ten ham": f"{record.funcName}()",
+            "dong so": record.lineno,
             "cap do": record.levelname,
             "thong diep": record.message
         }

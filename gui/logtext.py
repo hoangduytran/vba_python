@@ -245,8 +245,8 @@ class LogText(tk.Frame):
         # Open the save dialog with two format choices.
         path = filedialog.asksaveasfilename(
             title="Lưu Log vào tập tin",
-            defaultextension=".txt",
-            filetypes=[("Tệp văn bản (*.txt)", "*.txt"), ("Tệp JSON (*.json)", "*.json")]
+            defaultextension=".log",
+            filetypes=[("Tệp văn bản (*.log) lưu những gì trong hộp văn bản", "*.log"), ("Tệp JSON (*.json) lưu toàn bộ", "*.json")]
         )
         if path:
             expl = ""

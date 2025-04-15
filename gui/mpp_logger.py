@@ -90,7 +90,7 @@ class JsonFormatter(logging.Formatter):
         record.message = record.msg  
         record.asctime = self.formatTime(record, self.datefmt)
         # Create the log dictionary with non-diacritic keys.
-        log_record = create_log_record(record, with_diacritics=False)
+        log_record = create_log_record(record, with_diacritics=True)
         # Use json.dumps to convert the dictionary to a JSON-formatted string.
         return json.dumps(log_record, indent=4, ensure_ascii=False)
 

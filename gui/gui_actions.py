@@ -52,8 +52,8 @@ def save_log():
     """
     path = filedialog.asksaveasfilename(
         title="Lưu Log vào tập tin",
-        defaultextension=".txt",
-        filetypes=[("Tệp văn bản (*.txt)", "*.txt"), ("Tệp JSON (*.json)", "*.json")]
+        defaultextension=".log",
+        filetypes=[("Tệp văn bản (*.log)", "*.log"), ("Tệp JSON (*.json)", "*.json")]
     )
     if path:
         try:
