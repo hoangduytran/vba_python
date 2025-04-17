@@ -1,19 +1,19 @@
-# gv.py
+# Định nghĩa kiểu dáng chung cho các widget giao diện
 COMMON_WIDGET_STYLE = {"font": ("Arial", 18, "bold"), "width": 25, "height": 3}
 FONT_BASIC = ("Arial", 15, "normal")
 font_options = ["Arial", "Courier New", "Times New Roman", "Verdana", "Tahoma"]
 
 def create_log_record(record, with_diacritics=False):
     """
-    Creates a log record dictionary from a logging record.
+    Tạo một bản ghi log dưới dạng từ điển từ một đối tượng ghi log.
 
-    Args:
-        record: A logging record object.
-        with_diacritics (bool): If True, return keys with Vietnamese diacritics;
-                                if False, return keys without diacritics.
+    Tham số:
+        record: Đối tượng bản ghi log.
+        with_diacritics (bool): Nếu là True, trả về các khóa có dấu tiếng Việt;
+                                nếu là False, trả về các khóa không dấu.
 
-    Returns:
-        dict: A dictionary with the formatted log information.
+    Trả về:
+        dict: Một từ điển chứa thông tin log đã định dạng.
     """
     if with_diacritics:
         return {
@@ -36,30 +36,30 @@ def create_log_record(record, with_diacritics=False):
             "thong diep": record.message
         }
 
-
+# Lớp dùng để lưu các biến toàn cục trong ứng dụng
 class Gvar:
-    # Main window and logging
-    root = None               # Main Tk instance (set in gui.py)
-    mp_logging = None         # Reference to the logging object from mp_logging
-    logger = None
+    # Cửa sổ chính và logging
+    root = None               # Tham chiếu đến Tk chính (thiết lập trong gui.py)
+    mp_logging = None         # Tham chiếu đến đối tượng logging từ mp_logging
+    logger = None             # Logger chính
 
-    # Widget references (buttons)
+    # Tham chiếu đến các nút giao diện
     button_save_log = None
     button_load_vba_file = None
     button_load_excel_directory = None
     button_run_macro = None
     button_exit_app = None
 
-    # Display widgets
-    log_text_widget = None    # Reference to the log display (LogText widget)
-    progress_bar = None       # The progress bar widget
-    progress_label = None     # The label showing the percentage progress
+    # Các widget hiển thị
+    log_text_widget = None    # Tham chiếu đến widget hiển thị log (LogText)
+    progress_bar = None       # Thanh tiến trình
+    progress_label = None     # Nhãn hiển thị phần trăm tiến trình
 
-    # Application state variables
-    excel_directory = None    # Directory containing Excel files
-    vba_file = None           # Path to the VBA file
-    total_files = 0           # Total Excel files to process
-    progress_count = 0        # Count of processed files
-    progress_queue = None     # Queue for processing progress
-    log_level_var = None
-    is_exact_var = None
+    # Các biến trạng thái của ứng dụng
+    excel_directory = None    # Thư mục chứa các tệp Excel
+    vba_file = None           # Đường dẫn đến tệp VBA
+    total_files = 0           # Tổng số tệp Excel cần xử lý
+    progress_count = 0        # Số lượng tệp đã xử lý
+    progress_queue = None     # Hàng đợi xử lý tiến trình
+    log_level_var = None      # Biến lưu cấp độ log
+    is_exact_var = None       # Biến lưu trạng thái tìm kiếm chính xác hay không

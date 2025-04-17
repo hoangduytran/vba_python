@@ -236,10 +236,10 @@ class LogText(tk.Frame):
     
     def save_log(self):
         """
-        When the user chooses to save the log, open a save dialog with file type options for both
-        a text file (*.txt) and a JSON file (*.json). If a text file is chosen, write out the content
-        of the log text widget. If a JSON file is chosen, copy the temporary log file (which contains
-        JSON-formatted logs) to the chosen filename.
+        Khi người dùng chọn lưu nhật ký, hãy mở hộp thoại lưu với các tùy chọn loại tệp cho cả
+        tệp văn bản (*.txt) và tệp JSON (*.json). Nếu chọn tệp văn bản, thì ghi nội dung
+        của tiện ích văn bản nhật ký. Nếu chọn tệp JSON, hãy sao chép tệp nhật ký tạm thời (chứa
+        các nhật ký được định dạng JSON) vào tên tệp đã chọn.
         """
         import shutil
         # Open the save dialog with two format choices.
