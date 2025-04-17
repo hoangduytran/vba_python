@@ -1,3 +1,63 @@
+"""
+mpp_logger.py
+
+Module này cung cấp chức năng logging (ghi nhật ký) đa tiến trình, tích hợp tốt với giao diện Tkinter,
+hỗ trợ ghi log ra file dưới dạng JSON và hiển thị log trực tiếp trên giao diện người dùng hoặc terminal.
+
+Các thành phần chính:
+
+1. LOG_LEVELS: 
+   Dictionary định nghĩa mức độ log tiêu chuẩn theo module logging của Python.
+
+2. TextHandler:
+   Logging handler tùy chỉnh để hiển thị thông điệp log trực tiếp lên widget Text trong giao diện Tkinter.
+
+3. DynamicLevelFilter:
+   Lọc thông điệp log dựa trên mức độ log đã thiết lập (cho phép hiển thị từ mức log đó trở lên hoặc chính xác mức log đó).
+
+4. ExactLevelFilter:
+   Lọc thông điệp log chính xác bằng mức độ log được chỉ định.
+
+5. JsonFormatter:
+   Định dạng thông điệp log thành dạng JSON, hữu ích khi lưu log ra file.
+
+6. PrettyFormatter:
+   Định dạng thông điệp log thân thiện với người dùng, dễ đọc trên terminal hoặc giao diện GUI.
+
+7. MemoryLogHandler:
+   Lưu trữ các bản ghi log trong bộ nhớ (danh sách nội bộ), có thể được truy xuất hoặc xuất ra file khi cần thiết.
+
+8. LoggingMultiProcess:
+   - Điều khiển hệ thống logging đa tiến trình, sử dụng Queue để quản lý việc ghi log.
+   - Tự động quản lý file log tạm thời.
+   - Hỗ trợ cập nhật mức độ log động theo nhu cầu người dùng.
+
+9. get_mp_logger():
+   Hàm singleton toàn cục, trả về một instance duy nhất của LoggingMultiProcess để sử dụng trên toàn ứng dụng.
+
+Hướng dẫn sử dụng:
+
+- Khởi tạo logging:
+
+    logger = get_mp_logger().logger
+    logger.info("Thông điệp log")
+
+- Thiết lập mức độ log:
+
+    get_mp_logger().select_log_level(logging.INFO)
+
+- Tích hợp với giao diện Tkinter:
+
+    text_widget = tk.Text(root)
+    text_handler = TextHandler(text_widget)
+    text_handler.setFormatter(PrettyFormatter())
+    get_mp_logger().logger.addHandler(text_handler)
+
+- Khi kết thúc ứng dụng:
+
+    get_mp_logger().shutdown()
+"""
+
 import tkinter as tk
 import logging
 import sys
@@ -83,7 +143,8 @@ class ExactLevelFilter(logging.Filter):
 
 # -------------------------------------------------------------------------------
 # JsonFormatter: Định dạng bản ghi log thành chuỗi JSON (dành cho việc ghi vào file).
-# Các khóa trong JSON sẽ được xuất dưới dạng ASCII (không dấu), nhằm tránh các vấn đề mã hóa.
+# Các khóa trong JSON sẽ được xuất dưới dạng ASCII (không dấu), bật/tắt with_diacritics, 
+# nhằm tránh các vấn đề mã hóa.
 # -------------------------------------------------------------------------------
 class JsonFormatter(logging.Formatter):
     def format(self, record):
@@ -111,7 +172,7 @@ class PrettyFormatter(logging.Formatter):
         return formatted_output + '\n\n'
 
 # -------------------------------------------------------------------------------
-# MemoryLogHandler: Handler tùy chỉnh lưu trữ mỗi bản ghi log (theo định dạng JSON)
+# MemoryLogHandler: Handler tùy chỉnh lưu trữ mỗi bản ghi log
 # vào danh sách nội bộ (log_store) để sau này có thể xuất ra file nếu cần.
 # -------------------------------------------------------------------------------
 class MemoryLogHandler(logging.Handler):
